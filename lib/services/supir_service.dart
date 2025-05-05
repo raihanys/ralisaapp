@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 class SupirService {
   final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api';
   Timer? _timer;
 
   Future<Map<String, dynamic>> getAttendanceStatus(String token) async {
@@ -21,8 +22,6 @@ class SupirService {
       if (response.statusCode == 200) {
         if (data['error'] == false) {
           final list = data['data'];
-
-          // Mulai auto-refresh tiap 1 jam
           _startAutoRefresh(token);
 
           if (list is List && list.isEmpty) {
@@ -84,6 +83,7 @@ class SupirService {
   }) async {
     final url = Uri.parse(
       'http://192.168.20.65/ralisa_api/index.php/api/get_task_driver?token=$token',
+      // 'https://api3.ralisa.co.id/index.php/api/get_task_driver?token=$token',
     );
 
     final response = await http.get(url);
@@ -104,6 +104,7 @@ class SupirService {
   }) async {
     final url = Uri.parse(
       'http://192.168.20.65/ralisa_api/index.php/api/driver_ready',
+      // 'https://api3.ralisa.co.id/index.php/api/driver_ready',
     );
 
     final response = await http.post(
@@ -135,6 +136,7 @@ class SupirService {
     final response = await http.post(
       Uri.parse(
         'http://192.168.20.65/ralisa_api/index.php/api/driver_arrival_input',
+        // 'https://api3.ralisa.co.id/index.php/api/driver_arrival_input',
       ),
       body: {
         'token': token,
@@ -160,6 +162,7 @@ class SupirService {
   }) async {
     final url = Uri.parse(
       'http://192.168.20.65/ralisa_api/index.php/api/driver_departure_input',
+      // 'https://api3.ralisa.co.id/index.php/api/driver_departure_input',
     );
 
     final response = await http.post(

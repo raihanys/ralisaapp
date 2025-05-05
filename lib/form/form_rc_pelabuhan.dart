@@ -53,9 +53,9 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
     });
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
-      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      final pickedFile = await _picker.pickImage(source: source);
       if (pickedFile != null) {
         final file = File(pickedFile.path);
         if (await file.exists()) {
@@ -64,21 +64,19 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
               _selectedImage = file;
             });
           }
-
           await _autoSaveDraft();
-
           if (mounted) {
             showDialog(
               context: context,
               builder:
                   (context) => AlertDialog(
-                    content: Text('Pastikan data telah sesuai'),
+                    content: const Text('Pastikan data telah sesuai'),
                     actions: [
-                      ElevatedButton(
+                      TextButton(
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        child: Text('Iya'),
+                        child: const Text('Iya'),
                       ),
                     ],
                   ),
@@ -102,6 +100,7 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
       final res = await http.get(
         Uri.parse(
           'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan',
+          // 'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan',
         ),
       );
 
@@ -476,8 +475,35 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
-                          onPressed: _pickImage,
-                          icon: const Icon(Icons.photo),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text("Pilih Sumber Gambar"),
+                                  actions: [
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.camera_alt),
+                                      label: const Text("Kamera"),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        _pickImage(ImageSource.camera);
+                                      },
+                                    ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.image),
+                                      label: const Text("Galeri"),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        _pickImage(ImageSource.gallery);
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.photo_library),
                           label: const Text('Pilih Foto RC'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
@@ -514,19 +540,29 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
                                                 ),
                                               ),
                                               Positioned(
-                                                bottom: 10,
+                                                top: 10,
                                                 right: 10,
-                                                child: TextButton(
+                                                child: ElevatedButton(
                                                   onPressed:
                                                       () =>
                                                           Navigator.of(
                                                             context,
                                                           ).pop(),
-                                                  child: const Text(
-                                                    'Tutup',
-                                                    style: TextStyle(
-                                                      color: Colors.red,
-                                                    ),
+                                                  style: ElevatedButton.styleFrom(
+                                                    shape: const CircleBorder(),
+                                                    backgroundColor: Colors.red,
+                                                    padding: const EdgeInsets.all(
+                                                      10,
+                                                    ), // Sesuaikan padding sesuai kebutuhan
+                                                    minimumSize: const Size(
+                                                      40,
+                                                      40,
+                                                    ), // Set ukuran minimum agar tetap bulat
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.close,
+                                                    color: Colors.white,
+                                                    size: 24,
                                                   ),
                                                 ),
                                               ),
@@ -590,7 +626,7 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
                                                       ),
                                                   child: const Text('Tidak'),
                                                 ),
-                                                ElevatedButton(
+                                                TextButton(
                                                   onPressed: () {
                                                     Navigator.pop(context);
                                                     _submitData();

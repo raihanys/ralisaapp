@@ -6,13 +6,15 @@ import '../login_screen.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../services/auth_service.dart';
 import '../../services/pelabuhan_service.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import '../../services/background_services/unified_background_service.dart';
 
 class MainPelabuhan extends StatefulWidget {
-  const MainPelabuhan({Key? key}) : super(key: key);
+  final int initialTabIndex;
+
+  const MainPelabuhan({Key? key, this.initialTabIndex = 0}) : super(key: key);
 
   @override
   _MainPelabuhanState createState() => _MainPelabuhanState();
@@ -25,51 +27,28 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
   List<dynamic> archiveOrders = [];
   bool _isLoading = true;
   Timer? _timer;
-  String? _lastNotifiedOrderId;
-  late PelabuhanService _pelabuhanService;
   late AuthService _authService;
+  late PelabuhanService _pelabuhanService;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTabIndex;
     _authService = AuthService();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(seconds: 1));
+      final service = FlutterBackgroundService();
+      if (!await service.isRunning()) {
+        await UnifiedBackgroundService().initializeService(
+          role: await _authService.getRole() ?? '1',
+        );
+      }
+    });
     _pelabuhanService = PelabuhanService(_authService);
-    _initializeNotifications();
     _fetchOrders();
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _fetchOrders();
     });
-  }
-
-  Future<void> _initializeNotifications() async {
-    if (await Permission.notification.isDenied) {
-      await Permission.notification.request();
-    }
-
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'order_service_channel',
-      'Order Service Channel',
-      description: 'This channel is used for order notifications',
-      importance: Importance.high,
-      playSound: true,
-      enableVibration: true,
-    );
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-
-    await _pelabuhanService.initializeService();
   }
 
   @override
@@ -83,8 +62,6 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
 
     try {
       final orders = await _pelabuhanService.fetchOrders();
-
-      _checkForNewOrdersNotification(orders);
 
       orders.sort((a, b) {
         final tglA = a['keluar_pabrik_tgl'] ?? '';
@@ -182,29 +159,6 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
     }
   }
 
-  Future<void> _checkForNewOrdersNotification(List<dynamic> orders) async {
-    if (orders.isEmpty) return;
-
-    final newInboxOrders =
-        orders.where((order) {
-          final fotoRC = (order['foto_rc'] ?? '').toString().trim();
-          return fotoRC.isEmpty;
-        }).toList();
-
-    if (newInboxOrders.isEmpty) return;
-
-    final newestOrder = newInboxOrders.first;
-    final currentOrderId = newestOrder['so_id'].toString();
-
-    if (_lastNotifiedOrderId != currentOrderId) {
-      _lastNotifiedOrderId = currentOrderId;
-      await _pelabuhanService.showNewOrderNotification(
-        orderId: currentOrderId,
-        noRo: newestOrder['no_ro'] ?? 'No RO',
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -266,17 +220,24 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
               children: [
                 Image.asset('assets/images/logo.png', height: 40, width: 200),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                   onPressed: () async {
+                    // Show loading indicator
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder:
+                          (context) =>
+                              const Center(child: CircularProgressIndicator()),
+                    );
+
+                    // Perform logout
                     await _authService.logout();
+
                     if (!mounted) return;
-                    Navigator.pushReplacement(
+                    Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
                     );
                   },
                   child: const Text('Logout'),

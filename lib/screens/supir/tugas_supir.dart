@@ -68,12 +68,14 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
 
       final response = await SupirService.getTaskDriver(token: token);
       if (response['error'] == false && response['data'].isNotEmpty) {
+        final task = response['data'][0];
+
         setState(() {
-          _taskData = response['data'][0];
+          _taskData = task;
         });
       }
     } catch (e) {
-      debugPrint('Fetch Task Error: $e');
+      debugPrint('Fetch Task Error: \$e');
     }
   }
 
@@ -329,41 +331,48 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
                   builder: (context) {
                     return Dialog(
                       insetPadding: const EdgeInsets.all(16),
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  fotoRC,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder:
-                                      (context, error, stackTrace) =>
-                                          const Center(
-                                            child: Text('Gagal memuat gambar'),
-                                          ),
-                                ),
+                      backgroundColor: Colors.transparent,
+                      child: Stack(
+                        children: [
+                          InteractiveViewer(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                fotoRC,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder:
+                                    (context, error, stackTrace) =>
+                                        const Center(
+                                          child: Text('Gagal memuat gambar'),
+                                        ),
                               ),
                             ),
-                            Positioned(
-                              top: 16,
-                              right: 16,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.black.withOpacity(
-                                    0.6,
-                                  ),
-                                  foregroundColor: Colors.white,
-                                ),
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('Tutup'),
+                          ),
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: ElevatedButton.styleFrom(
+                                shape: const CircleBorder(),
+                                backgroundColor: Colors.red,
+                                padding: const EdgeInsets.all(
+                                  10,
+                                ), // Sesuaikan padding sesuai kebutuhan
+                                minimumSize: const Size(
+                                  40,
+                                  40,
+                                ), // Set ukuran minimum agar tetap bulat
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 24,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     );
                   },

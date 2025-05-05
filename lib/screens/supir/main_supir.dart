@@ -3,9 +3,12 @@ import '../login_screen.dart';
 import '../../services/auth_service.dart';
 import 'absen_supir.dart';
 import 'tugas_supir.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import '../../services/background_services/unified_background_service.dart';
 
 class MainSupir extends StatefulWidget {
-  const MainSupir({Key? key}) : super(key: key);
+  final int initialTabIndex;
+  const MainSupir({Key? key, this.initialTabIndex = 0}) : super(key: key);
 
   @override
   State<MainSupir> createState() => _MainSupirState();
@@ -18,7 +21,17 @@ class _MainSupirState extends State<MainSupir> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTabIndex;
     _authService = AuthService();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(seconds: 1));
+      final service = FlutterBackgroundService();
+      if (!await service.isRunning()) {
+        await UnifiedBackgroundService().initializeService(
+          role: await _authService.getRole() ?? '1',
+        );
+      }
+    });
   }
 
   final List<String> _titles = ['Absen', 'Tugas'];
@@ -54,17 +67,24 @@ class _MainSupirState extends State<MainSupir> {
               Row(
                 children: [
                   ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
                     onPressed: () async {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder:
+                            (context) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                      );
+
+                      // Perform logout
                       await _authService.logout();
+
                       if (!mounted) return;
-                      Navigator.pushReplacement(
+                      Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
                       );
                     },
                     child: const Text('Logout'),

@@ -41,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (result != null) {
+        await Future.delayed(Duration(milliseconds: 500));
         _navigateToRoleScreen();
       } else {
         setState(
@@ -67,17 +68,17 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget target;
 
     switch (role.toLowerCase()) {
+      case '1': // Driver
+        target = const MainSupir();
+        break;
+      case '3': // Pelabuhan
+        target = const MainPelabuhan();
+        break;
       case 'marketing':
         target = const MainMarketing();
         break;
       case 'trucking':
         target = const MainTrucking();
-        break;
-      case 'agent':
-        target = const MainPelabuhan();
-        break;
-      case 'driver':
-        target = const MainSupir();
         break;
       default:
         setState(() => _errorMessage = 'Role tidak valid: $role');

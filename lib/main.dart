@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/pelabuhan/main_pelabuhan.dart';
@@ -5,13 +6,100 @@ import 'screens/marketing/main_marketing.dart';
 import 'screens/trucking/main_trucking.dart';
 import 'screens/supir/main_supir.dart';
 import './services/auth_service.dart';
+import './services/background_services/background_service_initializer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import './services/background_services/unified_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-void main() {
-  runApp(const MyApp());
+final authService = AuthService();
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi notifikasi
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  final InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) async {
+      final payload = response.payload;
+
+      if (payload != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final role = prefs.getString('role');
+
+        // Beri sedikit delay untuk memastikan navigator siap
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Navigasi berdasarkan role dan payload
+        if (role == '1') {
+          // Supir
+          navigatorKey.currentState?.pushNamedAndRemoveUntil(
+            '/driver-task',
+            (route) => false,
+          );
+        } else if (role == '3') {
+          // Pelabuhan
+          navigatorKey.currentState?.pushNamedAndRemoveUntil(
+            '/pelabuhan-inbox',
+            (route) => false,
+          );
+        }
+      }
+    },
+  );
+
+  // Initialize service sebelum running app
+  _initializeService().then((_) => runApp(MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+Future<void> _initializeService() async {
+  final prefs = await SharedPreferences.getInstance();
+  final role = prefs.getString('role');
+  if (role == '1' || role == '3') {
+    await UnifiedBackgroundService().initializeService(role: role!);
+  }
+}
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Handle app lifecycle changes
+    if (state == AppLifecycleState.resumed) {
+      // App kembali aktif
+    } else if (state == AppLifecycleState.paused) {
+      // App di background
+    }
+  }
 
   Future<Widget> _getStartScreen() async {
     final authService = AuthService();
@@ -20,17 +108,19 @@ class MyApp extends StatelessWidget {
     final token = await authService.getValidToken();
 
     if (isLoggedIn && token != null) {
+      await initializeBackgroundService();
+
       final role = await authService.getRole();
       if (role != null) {
         switch (role.toLowerCase()) {
+          case '1': // Driver
+            return const MainSupir();
+          case '3': // Pelabuhan
+            return const MainPelabuhan();
           case 'marketing':
             return const MainMarketing();
           case 'trucking':
             return const MainTrucking();
-          case 'agent':
-            return const MainPelabuhan();
-          case 'driver':
-            return const MainSupir();
         }
       }
     }
@@ -42,6 +132,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ralisa Mobile App',
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -68,6 +159,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      routes: {
+        '/driver-task': (context) => const MainSupir(initialTabIndex: 1),
+        '/pelabuhan-inbox':
+            (context) => const MainPelabuhan(initialTabIndex: 0),
+      },
       home: FutureBuilder(
         future: _getStartScreen(),
         builder: (context, snapshot) {
