@@ -97,10 +97,12 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
 
   Future<void> _checkIfAlreadySubmitted() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? ''; // Get token from storage
       final res = await http.get(
         Uri.parse(
-          'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan',
-          // 'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan',
+          'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+          // 'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
         ),
       );
 
@@ -213,6 +215,9 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   }
 
   Future<void> _submitData() async {
+    // Lock untuk mencegah multiple submissions
+    if (_isSubmitting) return;
+
     if (!_isAllFieldsFilled() || _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -225,27 +230,26 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      bool success = false;
-      int retryCount = 0;
-      const maxRetry = 2; // Maksimal 2 kali percobaan
-
-      while (!success && retryCount < maxRetry) {
-        success = await _pelabuhanService.submitRC(
-          soId: widget.order['so_id'].toString(),
-          containerNum: _containerController.text.trim(),
-          sealNumber: _sealController.text.trim(),
-          sealNumber2: _seal2Controller.text.trim(),
-          fotoRcPath: _selectedImage!.path,
-          username: _namaPetugas ?? "Tidak diketahui",
-        );
-
-        if (!success && retryCount < maxRetry - 1) {
-          await Future.delayed(
-            const Duration(seconds: 1),
-          ); // Jeda sebelum retry
+      // Cek ulang status data sebelum submit
+      final isAlreadySubmitted = await _checkSubmissionStatus();
+      if (isAlreadySubmitted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Data ini sudah disubmit sebelumnya')),
+          );
+          Navigator.pop(context, true);
         }
-        retryCount++;
+        return;
       }
+
+      bool success = await _pelabuhanService.submitRC(
+        soId: widget.order['so_id'].toString(),
+        containerNum: _containerController.text.trim(),
+        sealNumber: _sealController.text.trim(),
+        sealNumber2: _seal2Controller.text.trim(),
+        fotoRcPath: _selectedImage!.path,
+        username: _namaPetugas ?? "Tidak diketahui",
+      );
 
       if (success) {
         final prefs = await SharedPreferences.getInstance();
@@ -264,11 +268,9 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Gagal mengirim data setelah beberapa percobaan'),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Gagal mengirim data')));
         }
       }
     } catch (e) {
@@ -281,6 +283,36 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
+    }
+  }
+
+  // Fungsi baru untuk cek status submission
+  Future<bool> _checkSubmissionStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      final res = await http.get(
+        Uri.parse(
+          'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+          // 'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+        ),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final archiveList = data['data'] ?? [];
+
+        return archiveList.any(
+          (item) =>
+              item['so_id'].toString() == widget.order['so_id'].toString() &&
+              item['foto_rc'] != null &&
+              item['foto_rc'].toString().isNotEmpty,
+        );
+      }
+      return false;
+    } catch (e) {
+      print('Error checking submission status: $e');
+      return false;
     }
   }
 
