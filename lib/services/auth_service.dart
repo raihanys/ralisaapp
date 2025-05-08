@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:device_info_plus/device_info_plus.dart';
 
 class AuthService {
-  final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
-  // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
+  // final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
+  final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
 
   // Future<String> _getDeviceImei() async {
   //   final deviceInfo = DeviceInfoPlugin();
@@ -21,21 +21,21 @@ class AuthService {
     // final imei = await _getDeviceImei();
     final _loginConfigs = [
       {
-        'role': '1', // Driver
-        'versions': ['2.7'],
-      },
-      {
         'role': '3', // Pelabuhan
         'versions': ['1.0'],
       },
-      {
-        'role': 'marketing',
-        'versions': ['1.0'],
-      },
-      {
-        'role': 'trucking',
-        'versions': ['1.0'],
-      },
+      // {
+      //   'role': '1', // Driver
+      //   'versions': ['2.7'],
+      // },
+      // {
+      //   'role': 'marketing',
+      //   'versions': ['1.0'],
+      // },
+      // {
+      //   'role': 'trucking',
+      //   'versions': ['1.0'],
+      // },
     ];
 
     for (final config in _loginConfigs) {
@@ -47,7 +47,7 @@ class AuthService {
             'username': username,
             'password': password,
             'type': role,
-            'version': version,
+            // 'version': version,
             'imei': imei,
             'firebase': 'dummy_token',
           };
@@ -72,7 +72,7 @@ class AuthService {
               await prefs.setString('username', username);
               await prefs.setString('password', password);
               await prefs.setString('role', role);
-              await prefs.setString('version', version);
+              // await prefs.setString('version', version);
               await prefs.setString('token', user['token'] ?? '');
 
               print('Login success with role: $role, version: $version');

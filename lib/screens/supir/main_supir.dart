@@ -3,6 +3,7 @@ import '../login_screen.dart';
 import '../../services/auth_service.dart';
 import 'absen_supir.dart';
 import 'tugas_supir.dart';
+import '../../services/supir_service.dart';
 
 class MainSupir extends StatefulWidget {
   const MainSupir({Key? key}) : super(key: key);
@@ -19,6 +20,7 @@ class _MainSupirState extends State<MainSupir> {
   void initState() {
     super.initState();
     _authService = AuthService();
+    SupirBackgroundService().initializeService();
   }
 
   final List<String> _titles = ['Absen', 'Tugas'];

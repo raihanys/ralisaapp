@@ -60,8 +60,8 @@ class PelabuhanService {
 
       final response = await http.get(
         Uri.parse(
-          'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
-          // 'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+          // 'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+          'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
         ),
       );
 
@@ -96,8 +96,8 @@ class PelabuhanService {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse(
-          'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc',
-          // 'https://api3.ralisa.co.id/index.php/api/agent_create_rc',
+          // 'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc',
+          'https://api3.ralisa.co.id/index.php/api/agent_create_rc',
         ),
       );
 
@@ -159,8 +159,8 @@ class PelabuhanService {
 
       final response = await http.get(
         Uri.parse(
-          'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
-          // 'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+          // 'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
+          'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
         ),
       );
 

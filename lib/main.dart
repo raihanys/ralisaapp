@@ -6,27 +6,13 @@ import 'screens/marketing/main_marketing.dart';
 import 'screens/trucking/main_trucking.dart';
 import 'screens/supir/main_supir.dart';
 import './services/auth_service.dart';
-import './services/background_service_initializer.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
-  // Ubah jadi StatefulWidget
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  // State untuk MyApp
-  @override
-  void initState() {
-    super.initState();
-    initializeRoleBasedService(context); // Inisialisasi service di sini
-  }
 
   Future<Widget> _getStartScreen() async {
     final authService = AuthService();
