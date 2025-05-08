@@ -1,3 +1,6 @@
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -198,5 +201,105 @@ class SupirService {
   void cancelAutoRefresh() {
     _timer?.cancel();
     _timer = null;
+  }
+}
+
+// === BACKGROUND SERVICE ===
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+@pragma('vm:entry-point')
+void supirOnStart(ServiceInstance service) async {
+  final supirService = SupirBackgroundService();
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  if (token == null || token.isEmpty) {
+    await service.stopSelf();
+    return;
+  }
+  await supirService.checkTaskStatus(service, token);
+}
+
+class SupirBackgroundService {
+  Future<void> initializeService() async {
+    final service = FlutterBackgroundService();
+
+    await service.configure(
+      androidConfiguration: AndroidConfiguration(
+        onStart: supirOnStart,
+        isForegroundMode: true,
+        autoStart: true,
+        notificationChannelId: 'supir_channel',
+        initialNotificationTitle: 'Ralisa App Service',
+        initialNotificationContent: 'Monitoring Progress...',
+        foregroundServiceNotificationId: 999,
+      ),
+      iosConfiguration: IosConfiguration(
+        autoStart: true,
+        onForeground: supirOnStart,
+        onBackground: (_) async => true,
+      ),
+    );
+
+    await service.startService();
+  }
+
+  Future<void> checkTaskStatus(ServiceInstance service, String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          'http://192.168.20.65/ralisa_api/index.php/api/get_task_driver?token=$token',
+          // 'https://api3.ralisa.co.id/index.php/api/get_task_driver?token=$token',
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['error'] == false && data['data'].isNotEmpty) {
+          final task = data['data'][0];
+
+          final prefs = await SharedPreferences.getInstance();
+          final lastFotoRC = prefs.getString('last_foto_rc') ?? '';
+          final lastTaskId = prefs.getString('last_task_id') ?? '';
+
+          if ((task['task_assign'] ?? 0) != 0 &&
+              (task['arrival_date'] == null || task['arrival_date'] == '-')) {
+            await _showNotif('Penugasan Diterima', 'Anda mendapat tugas baru.');
+          }
+
+          if ((task['departure_date'] != null &&
+                  task['departure_date'] != '-') &&
+              (task['departure_time'] != null &&
+                  task['departure_time'] != '-') &&
+              task['foto_rc_url'] != null &&
+              task['foto_rc_url'] != '-' &&
+              task['foto_rc_url'].toString() != lastFotoRC) {
+            await prefs.setString('last_foto_rc', task['foto_rc_url']);
+            await _showNotif('Foto RC Tersedia', 'Dokumen RC telah tersedia.');
+          }
+
+          if (task['task_id'].toString() != lastTaskId) {
+            await prefs.setString('last_task_id', task['task_id'].toString());
+          }
+        }
+      }
+    } catch (e) {
+      print('Error in background: $e');
+    }
+  }
+
+  Future<void> _showNotif(String title, String body) async {
+    const androidDetails = AndroidNotificationDetails(
+      'supir_channel',
+      'Notifikasi Supir',
+      channelDescription: 'Notifikasi untuk tugas supir',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      icon: '@mipmap/ic_launcher',
+    );
+    final notifDetails = NotificationDetails(android: androidDetails);
+    await flutterLocalNotificationsPlugin.show(0, title, body, notifDetails);
   }
 }

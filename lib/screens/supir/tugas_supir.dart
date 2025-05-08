@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../services/supir_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class TugasSupirScreen extends StatefulWidget {
   const TugasSupirScreen({Key? key}) : super(key: key);
@@ -22,6 +23,10 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
   bool _isSubmittingArrival = false;
   Timer? _timer;
   Map<String, dynamic>? _taskData;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  bool _hasNotifiedAssigned = false;
+  bool _hasNotifiedRCReady = false;
 
   Widget _buildTaskInfoRow(String label, dynamic value) {
     return Padding(
@@ -50,6 +55,7 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _fetchTaskData();
     _startPolling();
     _loadDraftData();
@@ -61,6 +67,47 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
     });
   }
 
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'supir_channel',
+      'Notifikasi Supir',
+      description: 'Untuk notifikasi penugasan dan RC',
+      importance: Importance.high,
+    );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'supir_channel',
+          'Notifikasi Supir',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+        );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(0, title, body, platformDetails);
+  }
+
   Future<void> _fetchTaskData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -69,6 +116,31 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
       final response = await SupirService.getTaskDriver(token: token);
       if (response['error'] == false && response['data'].isNotEmpty) {
         final task = response['data'][0];
+
+        // Notifikasi: Dapat tugas tapi belum sampai pabrik
+        if (!_hasNotifiedAssigned &&
+            (task['task_assign'] ?? 0) != 0 &&
+            (task['arrival_date'] == null || task['arrival_date'] == '-')) {
+          await _showNotification(
+            'Penugasan Diterima',
+            'Anda telah menerima tugas baru.',
+          );
+          _hasNotifiedAssigned = true;
+        }
+
+        // Notifikasi: Foto RC tersedia setelah sebelumnya belum ada
+        if (!_hasNotifiedRCReady &&
+            (task['departure_date'] != null && task['departure_date'] != '-') &&
+            (task['departure_time'] != null && task['departure_time'] != '-') &&
+            (task['foto_rc_url'] != null &&
+                task['foto_rc_url'] != '-' &&
+                task['foto_rc_url'].toString().isNotEmpty)) {
+          await _showNotification(
+            'Foto RC Tersedia',
+            'Dokumen RC Anda sudah tersedia.',
+          );
+          _hasNotifiedRCReady = true;
+        }
 
         setState(() {
           _taskData = task;

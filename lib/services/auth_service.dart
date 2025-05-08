@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'background_services/unified_background_service.dart';
 
 class AuthService {
   final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
@@ -68,9 +66,6 @@ class AuthService {
             final data = jsonDecode(res.body);
             if (data['error'] == false && data['data'] != null) {
               final user = data['data'];
-              if (role == '1' || role == '3') {
-                await _initializeBackgroundService(role);
-              }
               final prefs = await SharedPreferences.getInstance();
 
               await prefs.setBool('isLoggedIn', true);
@@ -81,7 +76,6 @@ class AuthService {
               await prefs.setString('token', user['token'] ?? '');
 
               print('Login success with role: $role, version: $version');
-
               return user;
             }
           }
@@ -96,41 +90,9 @@ class AuthService {
     return null;
   }
 
-  Future<void> _initializeBackgroundService(String role) async {
-    try {
-      final service = FlutterBackgroundService();
-
-      // Force stop any existing service first
-      if (await service.isRunning()) {
-        service.invoke('stop');
-        await Future.delayed(Duration(seconds: 1));
-      }
-
-      // Reinitialize service
-      await UnifiedBackgroundService().initializeService(role: role);
-      print('Background service reinitialized for role: $role');
-    } catch (e) {
-      print('Error initializing background service: $e');
-    }
-  }
-
   Future<void> logout() async {
-    await _terminateBackgroundServices();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-  }
-
-  Future<void> _terminateBackgroundServices() async {
-    try {
-      final service = FlutterBackgroundService();
-      final isRunning = await service.isRunning();
-
-      if (isRunning) {
-        service.invoke('stop');
-      }
-    } catch (e) {
-      print('Error stopping service: $e');
-    }
   }
 
   Future<String?> getToken() async {
