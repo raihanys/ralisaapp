@@ -1,98 +1,119 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 class AuthService {
-  // final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
-  final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
+  final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
+  // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
 
-  // Future<String> _getDeviceImei() async {
-  //   final deviceInfo = DeviceInfoPlugin();
-  //   final androidInfo = await deviceInfo.androidInfo;
-  //   return androidInfo.id;
-  // }
+  Future<String> _getDeviceImei() async {
+    final deviceInfo = DeviceInfoPlugin();
+    final androidInfo = await deviceInfo.androidInfo;
+    return androidInfo.id;
+  }
 
   Future<Map<String, dynamic>?> login({
     required String username,
     required String password,
   }) async {
-    final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
-    // final imei = await _getDeviceImei();
-    final _loginConfigs = [
-      {
-        'role': '3', // Pelabuhan
-        'versions': ['1.0'],
-      },
-      // {
-      //   'role': '1', // Driver
-      //   'versions': ['2.7'],
-      // },
-      // {
-      //   'role': 'marketing',
-      //   'versions': ['1.0'],
-      // },
-      // {
-      //   'role': 'trucking',
-      //   'versions': ['1.0'],
-      // },
-    ];
+    // final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
+    final imei = await _getDeviceImei();
 
-    for (final config in _loginConfigs) {
-      final role = config['role'] as String;
+    // Try Driver login (type 1) with version 2.7
+    final driverResult = await _attemptLogin(
+      username: username,
+      password: password,
+      type: '1',
+      version: '2.7',
+      imei: imei,
+    );
 
-      for (final version in config['versions'] as List<String>) {
-        try {
-          final body = {
-            'username': username,
-            'password': password,
-            'type': role,
-            // 'version': version,
-            'imei': imei,
-            'firebase': 'dummy_token',
-          };
-
-          print('Attempting: role=$role, version=$version');
-
-          final res = await http
-              .post(
-                Uri.parse(baseUrl),
-                headers: {'Content-Type': 'application/json'},
-                body: jsonEncode(body),
-              )
-              .timeout(const Duration(seconds: 5));
-
-          if (res.statusCode == 200) {
-            final data = jsonDecode(res.body);
-            if (data['error'] == false && data['data'] != null) {
-              final user = data['data'];
-              final prefs = await SharedPreferences.getInstance();
-
-              await prefs.setBool('isLoggedIn', true);
-              await prefs.setString('username', username);
-              await prefs.setString('password', password);
-              await prefs.setString('role', role);
-              // await prefs.setString('version', version);
-              await prefs.setString('token', user['token'] ?? '');
-
-              print('Login success with role: $role, version: $version');
-              return user;
-            }
-          }
-          print('Attempt failed: ${res.statusCode} - ${res.body}');
-        } catch (e) {
-          print('Error during attempt: $e');
-          continue;
-        }
-      }
+    if (driverResult != null) {
+      return driverResult;
     }
-    print('All login attempts failed');
+
+    // Try Pelabuhan login (type 3) with version 1.0
+    final pelabuhanResult = await _attemptLogin(
+      username: username,
+      password: password,
+      type: '3',
+      version: '1.0',
+      imei: imei,
+    );
+    return pelabuhanResult;
+  }
+
+  Future<Map<String, dynamic>?> _attemptLogin({
+    required String username,
+    required String password,
+    required String version,
+    required String type,
+    required String imei,
+  }) async {
+    try {
+      final body = {
+        'username': username,
+        'password': password,
+        'version': version,
+        'type': type,
+        'imei': imei,
+        'firebase': 'dummy_token',
+      };
+
+      print('Attempting login with version: $version, type: $type');
+
+      final res = await http
+          .post(
+            Uri.parse(baseUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 5));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['error'] == false && data['data'] != null) {
+          final user = data['data'];
+          final prefs = await SharedPreferences.getInstance();
+
+          await prefs.setBool('isLoggedIn', true);
+          await prefs.setString('username', username);
+          await prefs.setString('password', password);
+          await prefs.setString('role', type);
+          await prefs.setString('version', version);
+          await prefs.setString('token', user['token'] ?? '');
+
+          print('Login success with type: $type, version: $version');
+          return user;
+        } else {
+          print('Login failed: ${data['message']}');
+        }
+      } else {
+        print('HTTP error: ${res.statusCode} - ${res.body}');
+      }
+    } catch (e) {
+      print('Error during login attempt: $e');
+    }
+
     return null;
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    try {
+      // Hentikan background service dengan cara yang benar
+      final service = FlutterBackgroundService();
+      service.invoke('stopService');
+
+      // Hapus semua data login
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      print("Logout berhasil, service dihentikan dan data dibersihkan.");
+    } catch (e) {
+      print("Gagal logout: $e");
+    }
   }
 
   Future<String?> getToken() async {
@@ -140,14 +161,11 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     final username = prefs.getString('username');
     final password = prefs.getString('password');
-
     if (username == null || password == null) return null;
-
     try {
       final result = await login(username: username, password: password);
       return result?['token'];
     } catch (e) {
-      print('Error refreshing token: $e');
       return null;
     }
   }

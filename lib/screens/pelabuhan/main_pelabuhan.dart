@@ -18,23 +18,26 @@ class MainPelabuhan extends StatefulWidget {
   _MainPelabuhanState createState() => _MainPelabuhanState();
 }
 
-class _MainPelabuhanState extends State<MainPelabuhan> {
+class _MainPelabuhanState extends State<MainPelabuhan>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   List<dynamic> inboxOrders = [];
   List<dynamic> processOrders = [];
   List<dynamic> archiveOrders = [];
   bool _isLoading = true;
   Timer? _timer;
-  String? _lastNotifiedOrderId;
-  late PelabuhanService _pelabuhanService;
+  List<String> _notifiedOrderIds = [];
   late AuthService _authService;
+  late PelabuhanService _pelabuhanService;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _authService = AuthService();
     _pelabuhanService = PelabuhanService(_authService);
     _initializeNotifications();
+    _isLoading = true;
     _fetchOrders();
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _fetchOrders();
@@ -52,12 +55,20 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
     const InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    // Tambahkan handler untuk notifikasi yang diklik
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload?.startsWith('order_') ?? false) {
+          _fetchOrders(); // Refresh data saat notifikasi diklik
+        }
+      },
+    );
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'order_service_channel',
       'Order Service Channel',
-      description: 'This channel is used for order notifications',
+      description: 'RalisaApp Service',
       importance: Importance.high,
       playSound: true,
       enableVibration: true,
@@ -74,11 +85,20 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchOrders(); // Refresh data saat app aktif kembali
+    }
+  }
+
   Future<void> _fetchOrders() async {
+    await Future.delayed(Duration(seconds: 1));
     setState(() => _isLoading = true);
 
     try {
@@ -119,16 +139,19 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
       final draftSoIds =
           cleanedDraftOrders.map((e) => e['so_id'] as String).toList();
 
+      print("Orders received: $orders");
+
       setState(() {
         inboxOrders =
             orders.where((o) {
               final noRo = (o['no_ro'] ?? '').toString().trim();
               if (noRo.isEmpty) return false;
 
-              final fotoRC = (o['foto_rc'] ?? '').toString().trim();
-              final soId = o['so_id'].toString();
+              final fotoRC = o['foto_rc'];
+              final soId = o['so_id']?.toString() ?? '';
 
-              return fotoRC.isEmpty && !draftSoIds.contains(soId);
+              return (fotoRC == null || fotoRC.toString().trim().isEmpty) &&
+                  !draftSoIds.contains(soId);
             }).toList();
 
         processOrders =
@@ -173,6 +196,11 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
 
         _isLoading = false;
       });
+      // Bersihkan daftar notifikasi untuk order yang sudah memiliki foto RC
+      final completedOrderIds =
+          archiveOrders.map((o) => o['so_id'].toString()).toList();
+      _notifiedOrderIds.removeWhere((id) => completedOrderIds.contains(id));
+      await prefs.setStringList('notified_order_ids', _notifiedOrderIds);
     } catch (e) {
       print('Error fetching orders: $e');
       setState(() => _isLoading = false);
@@ -185,23 +213,29 @@ class _MainPelabuhanState extends State<MainPelabuhan> {
   Future<void> _checkForNewOrdersNotification(List<dynamic> orders) async {
     if (orders.isEmpty) return;
 
-    final newInboxOrders =
+    final prefs = await SharedPreferences.getInstance();
+    final notifiedIds = prefs.getStringList('notified_order_ids') ?? [];
+    _notifiedOrderIds = notifiedIds;
+
+    final newOrdersToNotify =
         orders.where((order) {
           final fotoRC = (order['foto_rc'] ?? '').toString().trim();
-          return fotoRC.isEmpty;
+          final soId = order['so_id'].toString();
+          return fotoRC.isEmpty && !_notifiedOrderIds.contains(soId);
         }).toList();
 
-    if (newInboxOrders.isEmpty) return;
+    if (newOrdersToNotify.isEmpty) return;
 
-    final newestOrder = newInboxOrders.first;
-    final currentOrderId = newestOrder['so_id'].toString();
-
-    if (_lastNotifiedOrderId != currentOrderId) {
-      _lastNotifiedOrderId = currentOrderId;
+    for (final order in newOrdersToNotify) {
+      final orderId = order['so_id'].toString();
       await _pelabuhanService.showNewOrderNotification(
-        orderId: currentOrderId,
-        noRo: newestOrder['no_ro'] ?? 'No RO',
+        orderId: orderId,
+        noRo: order['no_ro'] ?? 'No RO',
       );
+
+      // Tambahkan ke daftar yang sudah dinotifikasi
+      _notifiedOrderIds.add(orderId);
+      await prefs.setStringList('notified_order_ids', _notifiedOrderIds);
     }
   }
 

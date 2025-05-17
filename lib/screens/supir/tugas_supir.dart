@@ -1,32 +1,42 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart';
-import '../../../services/supir_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-class TugasSupirScreen extends StatefulWidget {
-  const TugasSupirScreen({Key? key}) : super(key: key);
+class TugasSupirScreen extends StatelessWidget {
+  final bool isLoading;
+  final Map<String, dynamic>? taskData;
+  final bool isWaitingAssignment;
+  final bool isLoadingButton;
+  final bool isSubmittingArrival;
+  final TextEditingController truckNameController;
+  final TextEditingController containerNumController;
+  final TextEditingController sealNum1Controller;
+  final TextEditingController sealNum2Controller;
+  final String? selectedTipeContainer;
+  final ValueChanged<String?> onTipeContainerChanged;
+  final VoidCallback onReadyPressed;
+  final VoidCallback onArrivalPressed;
+  final VoidCallback onDeparturePressed;
+  final VoidCallback onPortArrivalPressed;
+  final Function({bool containerAndSeal1, bool seal2}) onSaveDraft;
 
-  @override
-  State<TugasSupirScreen> createState() => _TugasSupirScreenState();
-}
-
-class _TugasSupirScreenState extends State<TugasSupirScreen> {
-  final TextEditingController _truckNameController = TextEditingController();
-  final TextEditingController _containerNumController = TextEditingController();
-  final TextEditingController _sealNum1Controller = TextEditingController();
-  final TextEditingController _sealNum2Controller = TextEditingController();
-  String? _selectedTipeContainer;
-  bool _isLoadingButton = false;
-  bool _isWaitingAssignment = false;
-  bool _isSubmittingArrival = false;
-  Timer? _timer;
-  Map<String, dynamic>? _taskData;
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-  bool _hasNotifiedAssigned = false;
-  bool _hasNotifiedRCReady = false;
+  const TugasSupirScreen({
+    Key? key,
+    required this.isLoading,
+    required this.taskData,
+    required this.isWaitingAssignment,
+    required this.isLoadingButton,
+    required this.isSubmittingArrival,
+    required this.truckNameController,
+    required this.containerNumController,
+    required this.sealNum1Controller,
+    required this.sealNum2Controller,
+    required this.selectedTipeContainer,
+    required this.onTipeContainerChanged,
+    required this.onReadyPressed,
+    required this.onArrivalPressed,
+    required this.onDeparturePressed,
+    required this.onPortArrivalPressed,
+    required this.onSaveDraft,
+  }) : super(key: key);
 
   Widget _buildTaskInfoRow(String label, dynamic value) {
     return Padding(
@@ -53,302 +63,20 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _initializeNotifications();
-    _fetchTaskData();
-    _startPolling();
-    _loadDraftData();
-  }
-
-  void _startPolling() {
-    _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _fetchTaskData();
-    });
-  }
-
-  Future<void> _initializeNotifications() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'supir_channel',
-      'Notifikasi Supir',
-      description: 'Untuk notifikasi penugasan dan RC',
-      importance: Importance.high,
-    );
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
-  }
-
-  Future<void> _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'supir_channel',
-          'Notifikasi Supir',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-        );
-
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await flutterLocalNotificationsPlugin.show(0, title, body, platformDetails);
-  }
-
-  Future<void> _fetchTaskData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-
-      final response = await SupirService.getTaskDriver(token: token);
-      if (response['error'] == false && response['data'].isNotEmpty) {
-        final task = response['data'][0];
-
-        // Notifikasi: Dapat tugas tapi belum sampai pabrik
-        if (!_hasNotifiedAssigned &&
-            (task['task_assign'] ?? 0) != 0 &&
-            (task['arrival_date'] == null || task['arrival_date'] == '-')) {
-          await _showNotification(
-            'Penugasan Diterima',
-            'Anda telah menerima tugas baru.',
-          );
-          _hasNotifiedAssigned = true;
-        }
-
-        // Notifikasi: Foto RC tersedia setelah sebelumnya belum ada
-        if (!_hasNotifiedRCReady &&
-            (task['departure_date'] != null && task['departure_date'] != '-') &&
-            (task['departure_time'] != null && task['departure_time'] != '-') &&
-            (task['foto_rc_url'] != null &&
-                task['foto_rc_url'] != '-' &&
-                task['foto_rc_url'].toString().isNotEmpty)) {
-          await _showNotification(
-            'Foto RC Tersedia',
-            'Dokumen RC Anda sudah tersedia.',
-          );
-          _hasNotifiedRCReady = true;
-        }
-
-        setState(() {
-          _taskData = task;
-        });
-      }
-    } catch (e) {
-      debugPrint('Fetch Task Error: \$e');
-    }
-  }
-
-  Future<void> _loadDraftData() async {
-    final prefs = await SharedPreferences.getInstance();
-    _containerNumController.text = prefs.getString('draft_container_num') ?? '';
-    _sealNum1Controller.text = prefs.getString('draft_seal_num1') ?? '';
-    _sealNum2Controller.text = prefs.getString('draft_seal_num2') ?? '';
-  }
-
-  Future<void> _saveDraftData({
-    bool containerAndSeal1 = false,
-    bool seal2 = false,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (containerAndSeal1) {
-      await prefs.setString(
-        'draft_container_num',
-        _containerNumController.text,
-      );
-      await prefs.setString('draft_seal_num1', _sealNum1Controller.text);
-    }
-    if (seal2) {
-      await prefs.setString('draft_seal_num2', _sealNum2Controller.text);
-    }
-  }
-
-  Future<void> _sendReady() async {
-    if (_selectedTipeContainer == null || _truckNameController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Lengkapi semua field')));
-      return;
-    }
-
-    setState(() {
-      _isLoadingButton = true;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      final response = await SupirService.sendReady(
-        token: token,
-        longitude: position.longitude,
-        latitude: position.latitude,
-        tipeContainer: _selectedTipeContainer!,
-        truckName: _truckNameController.text,
-      );
-
-      if (response['error'] == false) {
-        setState(() {
-          _isWaitingAssignment = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ready dikirim, menunggu tugas...')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal Ready: ${response['message']}')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      setState(() {
-        _isLoadingButton = false;
-      });
-    }
-  }
-
-  Future<void> _submitArrival() async {
-    if (_containerNumController.text.isEmpty ||
-        _sealNum1Controller.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Lengkapi semua field')));
-      return;
-    }
-
-    setState(() {
-      _isSubmittingArrival = true;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      final response = await SupirService.submitArrival(
-        token: token,
-        taskId: _taskData?['task_id'],
-        longitude: position.longitude,
-        latitude: position.latitude,
-        containerNum: _containerNumController.text,
-        sealNum1: _sealNum1Controller.text,
-      );
-
-      if (response['error'] == false) {
-        await prefs.remove('draft_container_num');
-        await prefs.remove('draft_seal_num1');
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Berhasil Sampai Pabrik')));
-
-        await _fetchTaskData();
-        setState(() {});
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal: ${response['message']}')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      setState(() {
-        _isSubmittingArrival = false;
-      });
-    }
-  }
-
-  Future<void> _sendDeparture() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      final now = DateTime.now();
-      final departureDate =
-          '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
-      final departureTime =
-          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-
-      final response = await SupirService.submitDeparture(
-        token: token,
-        taskId: _taskData?['task_id'],
-        departureDate: departureDate,
-        departureTime: departureTime,
-        longitude: position.longitude,
-        latitude: position.latitude,
-        sealNum2: _sealNum2Controller.text,
-      );
-
-      if (response['error'] == false) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Berhasil keluar pabrik')));
-
-        await _fetchTaskData();
-        setState(() {});
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal keluar: ${response['message']}')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
-  }
-
-  @override
-  void dispose() {
-    _truckNameController.dispose();
-    _containerNumController.dispose();
-    _sealNum1Controller.dispose();
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_taskData == null) {
+    if (isLoading || taskData == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final showReadyButton = _taskData?['queue'] == 0;
-    final taskAssign = _taskData?['task_assign'] ?? 0;
-    final arrivalDate = _taskData?['arrival_date'];
-    final departureDate = _taskData?['departure_date'];
-    final departureTime = _taskData?['departure_time'];
-    final fotoRC = _taskData?['foto_rc_url'];
+    final showReadyButton = taskData?['queue'] == 0;
+    final taskAssign = taskData?['task_assign'] ?? 0;
+    final arrivalDate = taskData?['arrival_date'];
+    final departureDate = taskData?['departure_date'];
+    final departureTime = taskData?['departure_time'];
+    final fotoRC = taskData?['foto_rc_url'];
 
-    // Kalau masih belum dapat tugas, tampilkan "Menunggu penugasan"
-    if (_isWaitingAssignment && taskAssign == 0) {
+    // Menunggu penugasan
+    if (isWaitingAssignment && taskAssign == 0) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -429,13 +157,8 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
                               style: ElevatedButton.styleFrom(
                                 shape: const CircleBorder(),
                                 backgroundColor: Colors.red,
-                                padding: const EdgeInsets.all(
-                                  10,
-                                ), // Sesuaikan padding sesuai kebutuhan
-                                minimumSize: const Size(
-                                  40,
-                                  40,
-                                ), // Set ukuran minimum agar tetap bulat
+                                padding: const EdgeInsets.all(10),
+                                minimumSize: const Size(40, 40),
                               ),
                               child: const Icon(
                                 Icons.close,
@@ -463,18 +186,12 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Panggil API Sampai Pelabuhan (nanti ditentukan endpointnya)
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Berhasil sampai pelabuhan')),
-                  );
-                },
+                onPressed: onPortArrivalPressed,
                 child: const Text('Sampai Pelabuhan'),
               ),
             ),
@@ -483,7 +200,7 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
       );
     }
 
-    // Kalau sudah dapat tugas dan SUDAH SAMPAI PABRIK (arrival_date != null dan tidak kosong)
+    // Kalau sudah dapat tugas dan SUDAH SAMPAI PABRIK
     if (taskAssign != 0 && arrivalDate != null && arrivalDate != '-') {
       return Padding(
         padding: const EdgeInsets.all(16.0),
@@ -494,25 +211,25 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            _buildTaskInfoRow('Nomor SO', _taskData?['so_number']),
-            _buildTaskInfoRow('Nomor RO', _taskData?['no_ro']),
+            _buildTaskInfoRow('Nomor SO', taskData?['so_number']),
+            _buildTaskInfoRow('Nomor RO', taskData?['no_ro']),
             _buildTaskInfoRow(
               'Tgl/Jam Stuffing',
-              '${_taskData?['pickup_date']} ${_taskData?['pickup_time_request']}',
+              '${taskData?['pickup_date']} ${taskData?['pickup_time_request']}',
             ),
-            _buildTaskInfoRow('Customer', _taskData?['company']),
-            _buildTaskInfoRow('Pelayaran', _taskData?['nama_pelayaran']),
-            _buildTaskInfoRow('Tujuan', _taskData?['nama_kota_tujuan']),
-            _buildTaskInfoRow('Nopol', _taskData?['truck_name']),
-            _buildTaskInfoRow('Uang Jalan', _taskData?['uang_jalan']),
-            _buildTaskInfoRow('Uang Komisi', _taskData?['uang_komisi']),
-            _buildTaskInfoRow('Lokasi Stuffing', _taskData?['sender_office']),
-            _buildTaskInfoRow('Nomor Container', _taskData?['container_num']),
-            _buildTaskInfoRow('Nomor Seal 1', _taskData?['seal_num1']),
+            _buildTaskInfoRow('Customer', taskData?['company']),
+            _buildTaskInfoRow('Pelayaran', taskData?['nama_pelayaran']),
+            _buildTaskInfoRow('Tujuan', taskData?['nama_kota_tujuan']),
+            _buildTaskInfoRow('Nopol', taskData?['truck_name']),
+            _buildTaskInfoRow('Uang Jalan', taskData?['uang_jalan']),
+            _buildTaskInfoRow('Uang Komisi', taskData?['uang_komisi']),
+            _buildTaskInfoRow('Lokasi Stuffing', taskData?['sender_office']),
+            _buildTaskInfoRow('Nomor Container', taskData?['container_num']),
+            _buildTaskInfoRow('Nomor Seal 1', taskData?['seal_num1']),
             const SizedBox(height: 24),
             TextField(
-              controller: _sealNum2Controller,
-              onChanged: (value) => _saveDraftData(seal2: true),
+              controller: sealNum2Controller,
+              onChanged: (value) => onSaveDraft(seal2: true),
               decoration: const InputDecoration(
                 hintText: 'Masukkan Seal Number 2 (optional)',
                 border: OutlineInputBorder(),
@@ -520,7 +237,7 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _sendDeparture,
+              onPressed: onDeparturePressed,
               child: const Text('Keluar Pabrik'),
             ),
           ],
@@ -540,25 +257,25 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            _buildTaskInfoRow('Nomor SO', _taskData?['so_number']),
-            _buildTaskInfoRow('Nomor RO', _taskData?['no_ro']),
+            _buildTaskInfoRow('Nomor SO', taskData?['so_number']),
+            _buildTaskInfoRow('Nomor RO', taskData?['no_ro']),
             _buildTaskInfoRow(
               'Tgl/Jam Stuffing',
-              '${_taskData?['pickup_date']} ${_taskData?['pickup_time_request']}',
+              '${taskData?['pickup_date']} ${taskData?['pickup_time_request']}',
             ),
-            _buildTaskInfoRow('Customer', _taskData?['company']),
-            _buildTaskInfoRow('Pelayaran', _taskData?['nama_pelayaran']),
-            _buildTaskInfoRow('Tujuan', _taskData?['nama_kota_tujuan']),
-            _buildTaskInfoRow('Nopol', _taskData?['truck_name']),
-            _buildTaskInfoRow('Uang Jalan', _taskData?['uang_jalan']),
-            _buildTaskInfoRow('Uang Komisi', _taskData?['uang_komisi']),
-            _buildTaskInfoRow('Lokasi Stuffing', _taskData?['sender_office']),
+            _buildTaskInfoRow('Customer', taskData?['company']),
+            _buildTaskInfoRow('Pelayaran', taskData?['nama_pelayaran']),
+            _buildTaskInfoRow('Tujuan', taskData?['nama_kota_tujuan']),
+            _buildTaskInfoRow('Nopol', taskData?['truck_name']),
+            _buildTaskInfoRow('Uang Jalan', taskData?['uang_jalan']),
+            _buildTaskInfoRow('Uang Komisi', taskData?['uang_komisi']),
+            _buildTaskInfoRow('Lokasi Stuffing', taskData?['sender_office']),
             const SizedBox(height: 24),
             const Text('Container Number', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
             TextField(
-              controller: _containerNumController,
-              onChanged: (value) => _saveDraftData(),
+              controller: containerNumController,
+              onChanged: (value) => onSaveDraft(containerAndSeal1: true),
               decoration: const InputDecoration(
                 hintText: 'Masukkan Nomor Container',
                 border: OutlineInputBorder(),
@@ -569,8 +286,8 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
             const Text('Seal Number 1', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
             TextField(
-              controller: _sealNum1Controller,
-              onChanged: (value) => _saveDraftData(),
+              controller: sealNum1Controller,
+              onChanged: (value) => onSaveDraft(containerAndSeal1: true),
               decoration: const InputDecoration(
                 hintText: 'Masukkan Seal Number 1',
                 border: OutlineInputBorder(),
@@ -582,9 +299,9 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isSubmittingArrival ? null : _submitArrival,
+                onPressed: isSubmittingArrival ? null : onArrivalPressed,
                 child:
-                    _isSubmittingArrival
+                    isSubmittingArrival
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Sampai Pabrik'),
               ),
@@ -604,16 +321,12 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
             const Text('Tipe Container', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedTipeContainer,
+              value: selectedTipeContainer,
               items:
                   ['10', '20'].map((value) {
                     return DropdownMenuItem(value: value, child: Text(value));
                   }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedTipeContainer = value;
-                });
-              },
+              onChanged: onTipeContainerChanged,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(horizontal: 12),
@@ -623,7 +336,7 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
             const Text('Truck Name', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
             TextField(
-              controller: _truckNameController,
+              controller: truckNameController,
               decoration: const InputDecoration(
                 hintText: 'Masukkan Nama Truk',
                 border: OutlineInputBorder(),
@@ -635,9 +348,9 @@ class _TugasSupirScreenState extends State<TugasSupirScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isLoadingButton ? null : _sendReady,
+                onPressed: isLoadingButton ? null : onReadyPressed,
                 child:
-                    _isLoadingButton
+                    isLoadingButton
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Ready'),
               ),

@@ -1,20 +1,94 @@
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'auth_service.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+@pragma('vm:entry-point')
+void supirOnStart(ServiceInstance service) async {
+  final supirService = SupirBackgroundService(AuthService());
+
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
+
+  try {
+    final token = await supirService._authService.getValidToken();
+    if (token == null) {
+      await service.stopSelf();
+      return;
+    }
+    await supirService.checkTaskStatus(service, token);
+  } catch (e) {
+    print('Background service error: $e');
+  }
+}
 
 class SupirService {
-  // final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  final String baseUrl = 'https://api3.ralisa.co.id/index.php/api';
+  final AuthService _authService;
+  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
   Timer? _timer;
 
-  Future<Map<String, dynamic>> getAttendanceStatus(String token) async {
+  SupirService(this._authService) {
+    _initializeNotifications();
+  }
+
+  // Centralized API endpoints
+  String get _attendanceStatusUrl => '$_baseUrl/get_attendance_driver';
+  String get _attendanceSubmitUrl => '$_baseUrl/driver_attendance';
+  String get _taskDriverUrl => '$_baseUrl/get_task_driver';
+  String get _driverReadyUrl => '$_baseUrl/driver_ready';
+  String get _driverArrivalUrl => '$_baseUrl/driver_arrival_input';
+  String get _driverDepartureUrl => '$_baseUrl/driver_departure_input';
+
+  Future<void> _initializeNotifications() async {
+    final status = await Permission.notification.request();
+    if (!status.isGranted) {
+      print('Notification permission not granted');
+    }
+
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    await flutterLocalNotificationsPlugin.initialize(
+      const InitializationSettings(android: initializationSettingsAndroid),
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        if (response.payload != null) {
+          // Handle notification tap if needed
+        }
+      },
+    );
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'supir_channel',
+      'Supir Notifications',
+      description: 'Channel for driver task notifications',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  Future<Map<String, dynamic>> getAttendanceStatus() async {
     try {
-      print('🔑 Token yang dikirim: $token');
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token not available');
+
       final response = await http.get(
-        Uri.parse('$baseUrl/get_attendance_driver?token=$token'),
+        Uri.parse('$_attendanceStatusUrl?token=$token'),
       );
 
       print('📡 Response status: ${response.statusCode}');
@@ -25,7 +99,7 @@ class SupirService {
       if (response.statusCode == 200) {
         if (data['error'] == false) {
           final list = data['data'];
-          _startAutoRefresh(token);
+          _startAutoRefresh();
 
           if (list is List && list.isEmpty) {
             return {
@@ -54,13 +128,15 @@ class SupirService {
   }
 
   Future<Map<String, dynamic>> kirimAbsen({
-    required String token,
     required String latitude,
     required String longitude,
   }) async {
     try {
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token not available');
+
       final response = await http.post(
-        Uri.parse('$baseUrl/driver_attendance'),
+        Uri.parse(_attendanceSubmitUrl),
         body: {'token': token, 'latitude': latitude, 'longitude': longitude},
       );
 
@@ -81,81 +157,89 @@ class SupirService {
     }
   }
 
-  static Future<Map<String, dynamic>> getTaskDriver({
-    required String token,
-  }) async {
-    final url = Uri.parse(
-      // 'http://192.168.20.65/ralisa_api/index.php/api/get_task_driver?token=$token',
-      'https://api3.ralisa.co.id/index.php/api/get_task_driver?token=$token',
-    );
+  Future<Map<String, dynamic>> getTaskDriver() async {
+    try {
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token not available');
 
-    final response = await http.get(url);
+      final response = await http.get(
+        Uri.parse('$_taskDriverUrl?token=$token'),
+      );
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to fetch task driver');
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to fetch task driver');
+      }
+    } catch (e) {
+      print('❌ Error in getTaskDriver: $e');
+      rethrow;
     }
   }
 
-  static Future<Map<String, dynamic>> sendReady({
-    required String token,
+  Future<Map<String, dynamic>> sendReady({
     required double longitude,
     required double latitude,
     required String tipeContainer,
     required String truckName,
   }) async {
-    final url = Uri.parse(
-      // 'http://192.168.20.65/ralisa_api/index.php/api/driver_ready',
-      'https://api3.ralisa.co.id/index.php/api/driver_ready',
-    );
+    try {
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token not available');
 
-    final response = await http.post(
-      url,
-      body: {
-        'token': token,
-        'longitude': longitude.toString(),
-        'latitude': latitude.toString(),
-        'tipe_container': tipeContainer,
-        'truck_name': truckName,
-      },
-    );
+      final response = await http.post(
+        Uri.parse(_driverReadyUrl),
+        body: {
+          'token': token,
+          'longitude': longitude.toString(),
+          'latitude': latitude.toString(),
+          'tipe_container': tipeContainer,
+          'truck_name': truckName,
+        },
+      );
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to send ready');
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to send ready');
+      }
+    } catch (e) {
+      print('❌ Error in sendReady: $e');
+      rethrow;
     }
   }
 
-  static Future<Map<String, dynamic>> submitArrival({
-    required String token,
+  Future<Map<String, dynamic>> submitArrival({
     required int taskId,
     required double longitude,
     required double latitude,
     required String containerNum,
     required String sealNum1,
   }) async {
-    final response = await http.post(
-      Uri.parse(
-        // 'http://192.168.20.65/ralisa_api/index.php/api/driver_arrival_input',
-        'https://api3.ralisa.co.id/index.php/api/driver_arrival_input',
-      ),
-      body: {
-        'token': token,
-        'id_task': taskId.toString(),
-        'longitude': longitude.toString(),
-        'latitude': latitude.toString(),
-        'container_num': containerNum,
-        'seal_num1': sealNum1,
-      },
-    );
+    try {
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token not available');
 
-    return json.decode(response.body);
+      final response = await http.post(
+        Uri.parse(_driverArrivalUrl),
+        body: {
+          'token': token,
+          'id_task': taskId.toString(),
+          'longitude': longitude.toString(),
+          'latitude': latitude.toString(),
+          'container_num': containerNum,
+          'seal_num1': sealNum1,
+        },
+      );
+
+      return json.decode(response.body);
+    } catch (e) {
+      print('❌ Error in submitArrival: $e');
+      rethrow;
+    }
   }
 
-  static Future<Map<String, dynamic>> submitDeparture({
-    required String token,
+  Future<Map<String, dynamic>> submitDeparture({
     required int taskId,
     required String departureDate,
     required String departureTime,
@@ -163,37 +247,135 @@ class SupirService {
     required double latitude,
     required String sealNum2,
   }) async {
-    final url = Uri.parse(
-      // 'http://192.168.20.65/ralisa_api/index.php/api/driver_departure_input',
-      'https://api3.ralisa.co.id/index.php/api/driver_departure_input',
-    );
+    try {
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token not available');
 
-    final response = await http.post(
-      url,
-      body: {
-        'token': token,
-        'id_task': taskId.toString(),
-        'departure_date': departureDate,
-        'departure_time': departureTime,
-        'longitude': longitude.toString(),
-        'latitude': latitude.toString(),
-        'seal_num2': sealNum2,
-      },
-    );
+      final response = await http.post(
+        Uri.parse(_driverDepartureUrl),
+        body: {
+          'token': token,
+          'id_task': taskId.toString(),
+          'departure_date': departureDate,
+          'departure_time': departureTime,
+          'longitude': longitude.toString(),
+          'latitude': latitude.toString(),
+          'seal_num2': sealNum2,
+        },
+      );
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to submit departure');
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to submit departure');
+      }
+    } catch (e) {
+      print('❌ Error in submitDeparture: $e');
+      rethrow;
     }
   }
 
-  void _startAutoRefresh(String token) {
+  Future<void> checkTaskStatus(ServiceInstance service, String token) async {
+    try {
+      final task = await _fetchTask(token);
+      if (task != null) {
+        await _checkAndShowNewTaskNotification(task);
+        await _checkAndShowRcReadyNotification(task);
+      }
+    } catch (e) {
+      print('Error in checkTaskStatus: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchTask(String token) async {
+    final response = await http.get(Uri.parse('$_taskDriverUrl?token=$token'));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['error'] == false && data['data'].isNotEmpty) {
+        return data['data'][0];
+      }
+    }
+    return null;
+  }
+
+  Future<void> _checkAndShowNewTaskNotification(
+    Map<String, dynamic> task,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastTaskId = prefs.getString('last_task_id');
+    final taskAssign = task['task_assign'] ?? 0;
+
+    if (taskAssign != 0 &&
+        (task['arrival_date'] == null || task['arrival_date'] == '-')) {
+      if (lastTaskId != task['task_id'].toString()) {
+        await _showNotification(
+          id: 1,
+          title: 'Tugas Baru',
+          body: 'Anda mendapatkan tugas baru!',
+          payload: 'task_${task['task_id']}',
+        );
+        await prefs.setString('last_task_id', task['task_id'].toString());
+      }
+    }
+  }
+
+  Future<void> _checkAndShowRcReadyNotification(
+    Map<String, dynamic> task,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastRcUrl = prefs.getString('last_rc_url');
+    final fotoRcUrl = task['foto_rc_url'];
+
+    if (fotoRcUrl != null && fotoRcUrl != '-') {
+      if (lastRcUrl != fotoRcUrl) {
+        await _showNotification(
+          id: 2,
+          title: 'RC Tersedia',
+          body: 'Foto RC sudah tersedia.',
+          payload: 'rc_${task['task_id']}',
+        );
+        await prefs.setString('last_rc_url', fotoRcUrl);
+      }
+    }
+  }
+
+  Future<void> _showNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'supir_channel',
+          'Supir Notifications',
+          channelDescription: 'Channel for driver task notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+          ticker: 'ticker',
+          playSound: true,
+          enableVibration: true,
+        );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      id,
+      title,
+      body,
+      platformDetails,
+      payload: payload,
+    );
+  }
+
+  void _startAutoRefresh() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(hours: 1), (_) async {
-      print('⏰ Auto-refresh absen …');
+      print('⏰ Auto-refresh absen ...');
       try {
-        await getAttendanceStatus(token);
+        await getAttendanceStatus();
       } catch (_) {}
     });
   }
@@ -204,26 +386,30 @@ class SupirService {
   }
 }
 
-// === BACKGROUND SERVICE ===
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-@pragma('vm:entry-point')
-void supirOnStart(ServiceInstance service) async {
-  final supirService = SupirBackgroundService();
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
-  if (token == null || token.isEmpty) {
-    await service.stopSelf();
-    return;
-  }
-  await supirService.checkTaskStatus(service, token);
-}
-
 class SupirBackgroundService {
-  Future<void> initializeService() async {
-    final service = FlutterBackgroundService();
+  final AuthService _authService;
+  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
 
+  String get _taskDriverUrl => '$_baseUrl/get_task_driver';
+
+  SupirBackgroundService(this._authService);
+
+  Future<void> initializeService() async {
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'supir_channel',
+      'Supir Service',
+      description: 'Notifikasi untuk tugas supir',
+      importance: Importance.max,
+    );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+
+    final service = FlutterBackgroundService();
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: supirOnStart,
@@ -247,40 +433,14 @@ class SupirBackgroundService {
   Future<void> checkTaskStatus(ServiceInstance service, String token) async {
     try {
       final response = await http.get(
-        Uri.parse(
-          // 'http://192.168.20.65/ralisa_api/index.php/api/get_task_driver?token=$token',
-          'https://api3.ralisa.co.id/index.php/api/get_task_driver?token=$token',
-        ),
+        Uri.parse('$_taskDriverUrl?token=$token'),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['error'] == false && data['data'].isNotEmpty) {
           final task = data['data'][0];
-
-          final prefs = await SharedPreferences.getInstance();
-          final lastFotoRC = prefs.getString('last_foto_rc') ?? '';
-          final lastTaskId = prefs.getString('last_task_id') ?? '';
-
-          if ((task['task_assign'] ?? 0) != 0 &&
-              (task['arrival_date'] == null || task['arrival_date'] == '-')) {
-            await _showNotif('Penugasan Diterima', 'Anda mendapat tugas baru.');
-          }
-
-          if ((task['departure_date'] != null &&
-                  task['departure_date'] != '-') &&
-              (task['departure_time'] != null &&
-                  task['departure_time'] != '-') &&
-              task['foto_rc_url'] != null &&
-              task['foto_rc_url'] != '-' &&
-              task['foto_rc_url'].toString() != lastFotoRC) {
-            await prefs.setString('last_foto_rc', task['foto_rc_url']);
-            await _showNotif('Foto RC Tersedia', 'Dokumen RC telah tersedia.');
-          }
-
-          if (task['task_id'].toString() != lastTaskId) {
-            await prefs.setString('last_task_id', task['task_id'].toString());
-          }
+          await _handleTaskNotifications(task);
         }
       }
     } catch (e) {
@@ -288,18 +448,62 @@ class SupirBackgroundService {
     }
   }
 
-  Future<void> _showNotif(String title, String body) async {
-    const androidDetails = AndroidNotificationDetails(
-      'supir_channel',
-      'Notifikasi Supir',
-      channelDescription: 'Notifikasi untuk tugas supir',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-      icon: '@mipmap/ic_launcher',
+  Future<void> _handleTaskNotifications(Map<String, dynamic> task) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastTaskId = prefs.getString('last_task_id') ?? '';
+
+    // New task notification
+    if ((task['task_assign'] ?? 0) != 0 &&
+        (task['arrival_date'] == null || task['arrival_date'] == '-') &&
+        task['task_id'].toString() != lastTaskId) {
+      await _showNotification(
+        title: 'Penugasan Diterima',
+        body: 'Anda mendapat tugas baru.',
+        payload: 'task_${task['task_id']}',
+      );
+      await prefs.setString('last_task_id', task['task_id'].toString());
+    }
+
+    // RC available notification
+    final lastFotoRC = prefs.getString('last_foto_rc') ?? '';
+    if (task['foto_rc_url'] != null &&
+        task['foto_rc_url'] != '-' &&
+        task['foto_rc_url'].toString() != lastFotoRC) {
+      await _showNotification(
+        title: 'Foto RC Tersedia',
+        body: 'Dokumen RC telah tersedia.',
+        payload: 'rc_${task['task_id']}',
+      );
+      await prefs.setString('last_foto_rc', task['foto_rc_url']);
+    }
+  }
+
+  Future<void> _showNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'supir_channel',
+          'Supir Notifications',
+          channelDescription: 'Notifikasi untuk tugas supir',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+        );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
     );
-    final notifDetails = NotificationDetails(android: androidDetails);
-    await flutterLocalNotificationsPlugin.show(0, title, body, notifDetails);
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      platformDetails,
+      payload: payload,
+    );
   }
 }

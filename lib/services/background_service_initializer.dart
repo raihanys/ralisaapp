@@ -21,7 +21,7 @@ Future<void> initializeRoleBasedService(BuildContext context) async {
     print(
       'Initializing SupirBackgroundService',
     ); // Tambahkan log sebelum inisialisasi
-    await SupirBackgroundService().initializeService();
+    await SupirBackgroundService(AuthService()).initializeService();
     print(
       'SupirBackgroundService initialized',
     ); // Tambahkan log setelah inisialisasi

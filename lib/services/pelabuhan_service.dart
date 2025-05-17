@@ -13,6 +13,11 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 @pragma('vm:entry-point')
 void pelabuhanOnStart(ServiceInstance service) async {
   final pelabuhanService = PelabuhanService(AuthService());
+
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
+
   try {
     final token = await pelabuhanService._authService.getValidToken();
     if (token == null) {
@@ -27,12 +32,19 @@ void pelabuhanOnStart(ServiceInstance service) async {
 
 class PelabuhanService {
   final AuthService _authService;
+  final String _ordersUrl =
+      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
+  // final String _ordersUrl =
+  //     'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
+  final String _submitRcUrl =
+      'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc';
+  // final String _submitRcUrl =
+  //     'https://api3.ralisa.co.id/index.php/api/agent_create_rc';
 
   PelabuhanService(this._authService);
 
   Future<void> initializeService() async {
     final service = FlutterBackgroundService();
-
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: pelabuhanOnStart,
@@ -49,33 +61,18 @@ class PelabuhanService {
         onBackground: (_) async => true,
       ),
     );
-
     await service.startService();
   }
 
   Future<List<dynamic>> fetchOrders() async {
-    try {
-      final token = await _authService.getToken();
-      if (token == null) return [];
-
-      final response = await http.get(
-        Uri.parse(
-          // 'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
-          'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body);
-        if (jsonData.containsKey('data') && jsonData['data'] is List) {
-          return jsonData['data'];
-        }
-      }
-      return [];
-    } catch (e) {
-      print('Error fetching orders: $e');
-      return [];
+    final token = await _authService.getValidToken();
+    if (token == null) return [];
+    final response = await http.get(Uri.parse('$_ordersUrl?token=$token'));
+    if (response.statusCode == 200) {
+      final jsonData = json.decode(response.body);
+      return jsonData['data'] is List ? jsonData['data'] : [];
     }
+    return [];
   }
 
   Future<bool> submitRC({
@@ -84,69 +81,48 @@ class PelabuhanService {
     required String sealNumber,
     required String sealNumber2,
     required String fotoRcPath,
-    required String username,
+    required String agent,
   }) async {
-    try {
-      final token = await _authService.getValidToken();
-      if (token == null) {
-        print('Error: Tidak dapat mendapatkan token valid');
-        return false;
-      }
+    final token = await _authService.getValidToken();
+    if (token == null) return false;
 
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse(
-          // 'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc',
-          'https://api3.ralisa.co.id/index.php/api/agent_create_rc',
-        ),
-      );
-
-      request.fields.addAll({
-        'so_id': soId,
-        'container_num': containerNum,
-        'seal_number': sealNumber,
-        'seal_number2': sealNumber2,
-        'agent': username,
-        'token': token,
-      });
-
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'foto_rc',
-          fotoRcPath,
-          contentType: MediaType('image', 'jpeg'),
-        ),
-      );
-
-      final response = await request.send();
-      final resBody = await response.stream.bytesToString();
-
-      print('RC Submit Response Body: $resBody'); // debug
-
-      final data = jsonDecode(resBody);
-
-      if (response.statusCode == 401 || data['error'] == true) {
-        final newToken = await _authService.softLoginRefresh();
-        if (newToken != null) {
-          return submitRC(
-            soId: soId,
-            containerNum: containerNum,
-            sealNumber: sealNumber,
-            sealNumber2: sealNumber2,
-            fotoRcPath: fotoRcPath,
-            username: username,
+    final request =
+        http.MultipartRequest('POST', Uri.parse(_submitRcUrl))
+          ..fields.addAll({
+            'so_id': soId,
+            'container_num': containerNum,
+            'seal_number': sealNumber,
+            'seal_number2': sealNumber2,
+            'agent': agent,
+            'token': token,
+          })
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'foto_rc',
+              fotoRcPath,
+              contentType: MediaType('image', 'jpeg'),
+            ),
           );
-        }
-        return false;
+
+    final response = await request.send();
+    final resBody = await response.stream.bytesToString();
+    final data = jsonDecode(resBody);
+
+    if (response.statusCode == 401 || data['error'] == true) {
+      final newToken = await _authService.softLoginRefresh();
+      if (newToken != null) {
+        return submitRC(
+          soId: soId,
+          containerNum: containerNum,
+          sealNumber: sealNumber,
+          sealNumber2: sealNumber2,
+          fotoRcPath: fotoRcPath,
+          agent: agent,
+        );
       }
-      return response.statusCode == 200 &&
-          (data['status'] == true ||
-              data['success'] == true ||
-              data['error'] == false);
-    } catch (e) {
-      print('Error submitting RC: $e');
-      return false;
     }
+    return response.statusCode == 200 &&
+        (data['status'] == true || data['error'] == false);
   }
 
   Future<void> _checkForNewOrders(ServiceInstance service) async {
@@ -157,12 +133,7 @@ class PelabuhanService {
         return;
       }
 
-      final response = await http.get(
-        Uri.parse(
-          // 'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
-          'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan?token=$token',
-        ),
-      );
+      final response = await http.get(Uri.parse('$_ordersUrl?token=$token'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonData = json.decode(response.body);
@@ -188,10 +159,6 @@ class PelabuhanService {
       }
     } catch (e) {
       print('Error in _checkForNewOrders: $e');
-      // Tambahkan logika untuk menangani kesalahan, misalnya,
-      // - Mencoba lagi setelah beberapa waktu
-      // - Mengirimkan laporan kesalahan ke server
-      // - Menghentikan layanan jika kesalahan tidak dapat diperbaiki
     }
   }
 
@@ -214,7 +181,7 @@ class PelabuhanService {
           ticker: 'Data RO Baru Masuk!',
           fullScreenIntent: true,
           styleInformation: BigTextStyleInformation(
-            'Nomor RO: $noRo',
+            'Nomor RO: $noRo\nStatus: RC Perlu di Proses!',
             contentTitle: 'Data RO Baru Masuk!',
             htmlFormatContentTitle: true,
           ),
@@ -225,11 +192,11 @@ class PelabuhanService {
     );
 
     await flutterLocalNotificationsPlugin.show(
-      0,
+      int.tryParse(orderId) ?? 0,
       'Data RO Baru Masuk!',
       'Nomor RO: $noRo',
       platformDetails,
-      payload: 'order_$orderId',
+      payload: 'order_$orderId', // Payload untuk trigger
     );
   }
 }
