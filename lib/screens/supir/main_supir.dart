@@ -52,6 +52,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _authService = AuthService();
     _supirService = SupirService(_authService);
+    _initializeNotifications();
     _initializeServices();
     _startBackgroundProcesses();
   }
@@ -77,13 +78,11 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   }
 
   Future<void> _initializeNotifications() async {
-    // Request notification permission
     final status = await Permission.notification.request();
     if (!status.isGranted) {
       print('Notification permission not granted');
     }
 
-    // Initialize with the same channel ID
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -91,8 +90,8 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
       InitializationSettings(android: initializationSettingsAndroid),
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
         if (response.payload?.startsWith('task_') ?? false) {
-          setState(() => _currentIndex = 1); // Switch to Tugas tab
-          await _fetchTaskData(); // Refresh data
+          setState(() => _currentIndex = 1);
+          await _fetchTaskData();
         }
       },
     );
@@ -104,8 +103,8 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   }
 
   void _startBackgroundProcesses() {
-    // Polling tugas setiap 10 detik
-    _taskPollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    // Polling tugas setiap 30 detik
+    _taskPollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _fetchTaskData();
     });
 

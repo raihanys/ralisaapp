@@ -1,20 +1,25 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 @pragma('vm:entry-point')
 void supirOnStart(ServiceInstance service) async {
+  // Pastikan SharedPreferences diinisialisasi sebelum digunakan
+  WidgetsFlutterBinding.ensureInitialized();
   final supirService = SupirBackgroundService(AuthService());
+  Timer? periodicTimer; // <-- Tambahkan timer
 
   service.on('stopService').listen((event) {
+    periodicTimer?.cancel(); // <-- Hentikan timer saat service berhenti
     service.stopSelf();
   });
 
@@ -24,7 +29,17 @@ void supirOnStart(ServiceInstance service) async {
       await service.stopSelf();
       return;
     }
+
+    // Jalankan pengecekan pertama kali
     await supirService.checkTaskStatus(service, token);
+
+    // Setup periodic check setiap 10 dtk
+    periodicTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+      final newToken = await supirService._authService.getValidToken();
+      if (newToken != null) {
+        await supirService.checkTaskStatus(service, newToken);
+      }
+    });
   } catch (e) {
     print('Background service error: $e');
   }
@@ -301,20 +316,26 @@ class SupirService {
   Future<void> _checkAndShowNewTaskNotification(
     Map<String, dynamic> task,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastTaskId = prefs.getString('last_task_id');
     final taskAssign = task['task_assign'] ?? 0;
+    final taskId = task['task_id']?.toString() ?? '';
+    final prefs = await SharedPreferences.getInstance();
+    final String notificationKey = 'notified_task_$taskId';
 
     if (taskAssign != 0 &&
         (task['arrival_date'] == null || task['arrival_date'] == '-')) {
-      if (lastTaskId != task['task_id'].toString()) {
+      if (!prefs.containsKey(notificationKey)) {
+        // Cek apakah notifikasi sudah pernah ditampilkan
         await _showNotification(
           id: 1,
           title: 'Tugas Baru',
           body: 'Anda mendapatkan tugas baru!',
-          payload: 'task_${task['task_id']}',
+          payload: 'task_$taskId',
         );
-        await prefs.setString('last_task_id', task['task_id'].toString());
+        await prefs.setBool(notificationKey, true);
+      }
+    } else {
+      if (prefs.containsKey(notificationKey)) {
+        await prefs.remove(notificationKey);
       }
     }
   }
@@ -322,19 +343,25 @@ class SupirService {
   Future<void> _checkAndShowRcReadyNotification(
     Map<String, dynamic> task,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastRcUrl = prefs.getString('last_rc_url');
     final fotoRcUrl = task['foto_rc_url'];
+    final taskId = task['task_id']?.toString() ?? '';
+    final prefs = await SharedPreferences.getInstance();
+    final String notificationKey = 'notified_rc_$taskId';
 
     if (fotoRcUrl != null && fotoRcUrl != '-') {
-      if (lastRcUrl != fotoRcUrl) {
+      if (!prefs.containsKey(notificationKey)) {
         await _showNotification(
           id: 2,
           title: 'RC Tersedia',
           body: 'Foto RC sudah tersedia.',
           payload: 'rc_${task['task_id']}',
         );
-        await prefs.setString('last_rc_url', fotoRcUrl);
+        await prefs.setBool(notificationKey, true);
+      }
+    } else {
+      // Jika kondisi RC tidak lagi memenuhi kriteria notifikasi, hapus status notifikasi
+      if (prefs.containsKey(notificationKey)) {
+        await prefs.remove(notificationKey);
       }
     }
   }
@@ -431,54 +458,129 @@ class SupirBackgroundService {
   }
 
   Future<void> checkTaskStatus(ServiceInstance service, String token) async {
+    print('⏰ checkTaskStatus started at ${DateTime.now()}'); // Log mulai fungsi
     try {
       final response = await http.get(
         Uri.parse('$_taskDriverUrl?token=$token'),
       );
 
+      print(
+        '📡 API Response Status Code: ${response.statusCode}',
+      ); // Log Status Code
+      print(
+        '📡 API Response Body (partial): ${response.body.substring(0, response.body.length)}...',
+      ); // Log sebagian body
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print(
+          '✅ API response parsed successfully. Error: ${data['error']}, Data empty: ${data['data'].isEmpty}',
+        ); // Log parsing sukses
+
         if (data['error'] == false && data['data'].isNotEmpty) {
           final task = data['data'][0];
+          print(
+            '➡️ Calling _handleTaskNotifications with task data.',
+          ); // Log sebelum panggil handler
           await _handleTaskNotifications(task);
+        } else {
+          print(
+            'ℹ️ API response indicates error or empty data, not calling _handleTaskNotifications.',
+          );
+          // Tambahkan logika untuk menghapus semua notifikasi terkait tugas jika tidak ada tugas
+          // atau jika API mengembalikan error. Ini untuk me-reset status jika tugas sebelumnya hilang.
+          await _clearAllTaskNotifications();
+        }
+      } else {
+        print('❌ API call failed with status code: ${response.statusCode}');
+        // Mungkin tambahkan logika untuk softLoginRefresh di sini jika status code 401
+        // Di dalam SupirBackgroundService.checkTaskStatus
+        if (response.statusCode == 401) {
+          print('Token invalid, attempting soft login refresh...');
+          final newToken = await _authService.softLoginRefresh();
+          if (newToken != null) {
+            print('Soft login success');
+            await checkTaskStatus(service, newToken); // Retry dengan token baru
+          }
         }
       }
     } catch (e) {
-      print('Error in background: $e');
+      print(
+        '❌ Error in checkTaskStatus API call: $e',
+      ); // Log error saat fetch API
+      // Handle network errors etc.
+    } finally {
+      print(
+        '✅ checkTaskStatus finished at ${DateTime.now()}',
+      ); // Log selesai fungsi
     }
   }
 
   Future<void> _handleTaskNotifications(Map<String, dynamic> task) async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastTaskId = prefs.getString('last_task_id') ?? '';
+    final taskId = task['task_id']?.toString() ?? '';
+    final taskAssign = task['task_assign'] ?? 0;
+    final arrivalDate = task['arrival_date'];
+    final fotoRCUrl = task['foto_rc_url']?.toString() ?? '';
 
-    // New task notification
-    if ((task['task_assign'] ?? 0) != 0 &&
-        (task['arrival_date'] == null || task['arrival_date'] == '-') &&
-        task['task_id'].toString() != lastTaskId) {
-      await _showNotification(
-        title: 'Penugasan Diterima',
-        body: 'Anda mendapat tugas baru.',
-        payload: 'task_${task['task_id']}',
-      );
-      await prefs.setString('last_task_id', task['task_id'].toString());
+    final prefs = await SharedPreferences.getInstance();
+
+    // Notifikasi Tugas Baru
+    final String newTaskNotificationKey = 'notified_task_$taskId';
+    if (taskAssign != 0 && (arrivalDate == null || arrivalDate == '-')) {
+      if (!prefs.containsKey(newTaskNotificationKey)) {
+        print('  -> Triggering New Task Notification for Task ID: $taskId');
+        await _showNotification(
+          id: 1,
+          title: 'Penugasan Diterima',
+          body: 'Anda mendapat tugas baru.',
+          payload: 'task_$taskId',
+        );
+        await prefs.setBool(newTaskNotificationKey, true);
+      }
+    } else {
+      // Jika tugas sudah tidak baru atau sudah tiba, hapus status notifikasi tugas baru
+      if (prefs.containsKey(newTaskNotificationKey)) {
+        await prefs.remove(newTaskNotificationKey);
+      }
     }
 
-    // RC available notification
-    final lastFotoRC = prefs.getString('last_foto_rc') ?? '';
-    if (task['foto_rc_url'] != null &&
-        task['foto_rc_url'] != '-' &&
-        task['foto_rc_url'].toString() != lastFotoRC) {
-      await _showNotification(
-        title: 'Foto RC Tersedia',
-        body: 'Dokumen RC telah tersedia.',
-        payload: 'rc_${task['task_id']}',
-      );
-      await prefs.setString('last_foto_rc', task['foto_rc_url']);
+    // Notifikasi RC Tersedia
+    final String rcNotificationKey = 'notified_rc_$taskId';
+    if (fotoRCUrl.isNotEmpty && fotoRCUrl != '-') {
+      if (!prefs.containsKey(rcNotificationKey)) {
+        print(
+          '  -> Triggering RC Available Notification (Simplified Logic) for Task ID: $taskId',
+        );
+        await _showNotification(
+          id: 2,
+          title: 'Foto RC Tersedia',
+          body: 'Dokumen RC telah tersedia.',
+          payload: 'rc_$taskId',
+        );
+        await prefs.setBool(rcNotificationKey, true);
+      }
+    } else {
+      // Jika foto RC belum tersedia atau sudah tidak relevan, hapus status notifikasi RC
+      if (prefs.containsKey(rcNotificationKey)) {
+        await prefs.remove(rcNotificationKey);
+      }
     }
   }
 
+  // Fungsi untuk menghapus semua status notifikasi tugas jika tidak ada tugas
+  Future<void> _clearAllTaskNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+    for (String key in keys) {
+      if (key.startsWith('notified_task_') || key.startsWith('notified_rc_')) {
+        await prefs.remove(key);
+      }
+    }
+    print('ℹ️ All task and RC notifications cleared from SharedPreferences.');
+  }
+
   Future<void> _showNotification({
+    required int id,
     required String title,
     required String body,
     String? payload,
@@ -498,8 +600,13 @@ class SupirBackgroundService {
       android: androidDetails,
     );
 
+    // ID notifikasi 1 untuk tugas baru, 2 untuk RC tersedia
+    // Ini memastikan notifikasi yang sama (misal selalu ID 1 untuk tugas baru)
+    // akan mengupdate notifikasi sebelumnya jika sudah ada, bukan membuat yang baru berulang.
+    // Namun, dengan logika SharedPreferences, ini tidak akan sering terjadi.
+
     await flutterLocalNotificationsPlugin.show(
-      0,
+      id,
       title,
       body,
       platformDetails,
