@@ -171,9 +171,9 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
 
     if (existing.isNotEmpty) {
       final data = jsonDecode(existing);
-      _containerController.text = data['driver_container_num'] ?? '';
-      _sealController.text = data['driver_seal_num1'] ?? '';
-      _seal2Controller.text = data['driver_seal_num2'] ?? '';
+      _containerController.text = data['container_num'] ?? '';
+      _sealController.text = data['seal_number'] ?? '';
+      _seal2Controller.text = data['seal_number2'] ?? '';
       String fotoPath = data['foto_rc'] ?? '';
       if (fotoPath.isNotEmpty) {
         _selectedImage = File(fotoPath);
@@ -183,9 +183,9 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
         _databaseData = data;
       });
     } else {
-      _containerController.text = widget.order['driver_container_num'] ?? '';
-      _sealController.text = widget.order['driver_seal_num1'] ?? '';
-      _seal2Controller.text = widget.order['driver_seal_num2'] ?? '';
+      _containerController.text = widget.order['container_num'] ?? '';
+      _sealController.text = widget.order['seal_number'] ?? '';
+      _seal2Controller.text = widget.order['seal_number2'] ?? '';
 
       setState(() {
         _databaseData = widget.order;
@@ -210,11 +210,13 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
         "nama_kapal": widget.order['nama_kapal'] ?? '',
         "nomor_voy": widget.order['nomor_voy'] ?? '',
         "nama_pelayaran": widget.order['nama_pelayaran'] ?? '',
-        "driver_container_num": _containerController.text.trim(),
-        "driver_seal_num1": _sealController.text.trim(),
-        "driver_seal_num2": _seal2Controller.text.trim(),
+        "container_num": _containerController.text.trim(),
+        "seal_number": _sealController.text.trim(),
+        "seal_number2": _seal2Controller.text.trim(),
         "foto_rc": _selectedImage?.path ?? "",
         "username": _namaPetugas ?? "Tidak diketahui",
+        "keluar_pabrik_tgl": widget.order['keluar_pabrik_tgl'] ?? '',
+        "keluar_pabrik_jam": widget.order['keluar_pabrik_jam'] ?? '',
       };
 
       final updatedDrafts =

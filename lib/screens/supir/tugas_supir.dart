@@ -9,6 +9,12 @@ class TugasSupirScreen extends StatelessWidget {
   final TextEditingController truckNameController;
   final TextEditingController containerNumController;
   final TextEditingController sealNum1Controller;
+  final FocusNode sealNum1FocusNode; // New property for FocusNode
+  final List<String> sealNumberSuggestions; // New property for suggestions
+  final bool isSealNumberValid; // New property for validation status
+  final ValueChanged<String> onSealNum1Changed; // New callback for text changes
+  final ValueChanged<String>
+  onSealNumberSuggestionSelected; // New callback for suggestion selection
   final TextEditingController sealNum2Controller;
   final String? selectedTipeContainer;
   final ValueChanged<String?> onTipeContainerChanged;
@@ -28,6 +34,11 @@ class TugasSupirScreen extends StatelessWidget {
     required this.truckNameController,
     required this.containerNumController,
     required this.sealNum1Controller,
+    required this.sealNum1FocusNode, // Mark as required
+    required this.sealNumberSuggestions, // Mark as required
+    required this.isSealNumberValid, // Mark as required
+    required this.onSealNum1Changed, // Mark as required
+    required this.onSealNumberSuggestionSelected, // Mark as required
     required this.sealNum2Controller,
     required this.selectedTipeContainer,
     required this.onTipeContainerChanged,
@@ -231,7 +242,7 @@ class TugasSupirScreen extends StatelessWidget {
               controller: sealNum2Controller,
               onChanged: (value) => onSaveDraft(seal2: true),
               decoration: const InputDecoration(
-                hintText: 'Masukkan Seal Number 2 (optional)',
+                hintText: 'Masukkan Seal Number 2',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -246,7 +257,7 @@ class TugasSupirScreen extends StatelessWidget {
     }
 
     // Kalau sudah dapat tugas tapi BELUM sampai pabrik
-    if (taskAssign != 0) {
+    if (taskAssign != 0 && (arrivalDate == null || arrivalDate == '-')) {
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -285,15 +296,65 @@ class TugasSupirScreen extends StatelessWidget {
             const SizedBox(height: 16),
             const Text('Seal Number 1', style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
-            TextField(
+            TextFormField(
+              // **Berubah menjadi TextFormField**
               controller: sealNum1Controller,
-              onChanged: (value) => onSaveDraft(containerAndSeal1: true),
-              decoration: const InputDecoration(
+              focusNode: sealNum1FocusNode,
+              onChanged: onSealNum1Changed,
+              decoration: InputDecoration(
                 hintText: 'Masukkan Seal Number 1',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
+            // Tampilkan saran di bawah TextFormField dengan styling
+            if (sealNumberSuggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(
+                  top: 4,
+                ), // Jarak sedikit dari TextField
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2), // Efek bayangan ke bawah
+                    ),
+                  ],
+                ),
+                constraints: const BoxConstraints(
+                  maxHeight: 200,
+                ), // Batasi tinggi dropdown
+                child: ListView.builder(
+                  shrinkWrap: true, // Agar ListView mengambil tinggi secukupnya
+                  padding: EdgeInsets.zero, // Hapus padding default ListView
+                  itemCount: sealNumberSuggestions.length,
+                  itemBuilder: (context, index) {
+                    final suggestion = sealNumberSuggestions[index];
+                    return InkWell(
+                      // Menggunakan InkWell untuk efek sentuhan
+                      onTap: () {
+                        onSealNumberSuggestionSelected(suggestion);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          suggestion,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,

@@ -62,6 +62,7 @@ class SupirService {
   String get _driverReadyUrl => '$_baseUrl/driver_ready';
   String get _driverArrivalUrl => '$_baseUrl/driver_arrival_input';
   String get _driverDepartureUrl => '$_baseUrl/driver_departure_input';
+  String get _sealUrl => '$_baseUrl/get_seal_number';
 
   Future<void> _initializeNotifications() async {
     final status = await Permission.notification.request();
@@ -221,6 +222,34 @@ class SupirService {
     } catch (e) {
       print('❌ Error in sendReady: $e');
       rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getSealNumber({required String sealNumber}) async {
+    try {
+      final token =
+          await _authService
+              .getValidToken(); // Use AuthService to get the token
+      if (token == null)
+        throw Exception('Token not available'); // Add null check for token
+
+      final response = await http.get(
+        Uri.parse('$_sealUrl?token=$token&seal_number=$sealNumber'),
+      );
+
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode == 200 && responseData['status'] == true) {
+        return responseData['data'] as List<dynamic>;
+      } else {
+        debugPrint(
+          'Failed to get seal number: ${responseData['message'] ?? response.body}',
+        );
+        return []; // Return empty list if status is false or data is empty
+      }
+    } catch (e) {
+      debugPrint('Error fetching seal numbers: $e');
+      throw Exception('Failed to connect to API: $e');
     }
   }
 

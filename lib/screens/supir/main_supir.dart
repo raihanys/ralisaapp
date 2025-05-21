@@ -23,6 +23,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   late SupirService _supirService;
   Timer? _taskPollingTimer;
   Timer? _locationUpdateTimer;
+  Timer? _debounceTimer;
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -46,6 +47,11 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   final TextEditingController _sealNum2Controller = TextEditingController();
   String? _selectedTipeContainer;
 
+  // Seal Validation
+  List<String> _sealNumberSuggestions = [];
+  bool _isSealNumberValid = true; // To track validation status for UI
+  FocusNode _sealNum1FocusNode = FocusNode(); // For detecting unfocus
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +61,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     _initializeNotifications();
     _initializeServices();
     _startBackgroundProcesses();
+    _sealNum1FocusNode.addListener(_onSealNum1FocusChange);
   }
 
   @override
@@ -66,6 +73,9 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     _sealNum1Controller.dispose();
     _sealNum2Controller.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    _sealNum1FocusNode.removeListener(_onSealNum1FocusChange);
+    _sealNum1FocusNode.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -318,13 +328,135 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     }
   }
 
+  // Modifikasi _fetchSealNumberSuggestions untuk debouncing
+  Future<void> _fetchSealNumberSuggestions(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _sealNumberSuggestions = [];
+        _isSealNumberValid = true; // Reset validasi saat kosong
+      });
+      return;
+    }
+
+    // Batalkan timer sebelumnya jika ada
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+
+    // Set timer baru
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final data = await _supirService.getSealNumber(sealNumber: query);
+        setState(() {
+          _sealNumberSuggestions =
+              data.map((item) => item['number'].toString()).toList();
+          // Opsional: Langsung validasi saat fetch saran juga
+          // _isSealNumberValid = data.any((item) => item['number'] == query);
+        });
+      } catch (e) {
+        debugPrint('Error fetching suggestions: $e');
+        setState(() {
+          _sealNumberSuggestions = [];
+        });
+      }
+    });
+  }
+
+  // Metode untuk memvalidasi nomor segel saat fokus berubah
+  void _onSealNum1FocusChange() async {
+    // Panggil validasi hanya jika field kehilangan fokus DAN tidak kosong
+    if (!_sealNum1FocusNode.hasFocus && _sealNum1Controller.text.isNotEmpty) {
+      await _validateSealNumber(_sealNum1Controller.text);
+    } else if (_sealNum1FocusNode.hasFocus) {
+      // Saat fokus, pastikan error state di-reset jika sebelumnya invalid
+      if (!_isSealNumberValid) {
+        setState(() {
+          _isSealNumberValid = true;
+        });
+      }
+    }
+  }
+
+  // Perbaiki logika _validateSealNumber
+  Future<bool> _validateSealNumber(String sealNumber) async {
+    if (sealNumber.isEmpty) {
+      setState(() {
+        _isSealNumberValid =
+            true; // Nomor segel kosong dianggap valid untuk saat ini
+      });
+      return true;
+    }
+
+    try {
+      final data = await _supirService.getSealNumber(sealNumber: sealNumber);
+      // Cek apakah ada nomor segel yang persis sama dengan input di data yang diterima
+      final isValid = data.any((item) => item['number'] == sealNumber);
+
+      setState(() {
+        _isSealNumberValid = isValid;
+      });
+
+      if (!isValid) {
+        // Tampilkan pop-up dan kosongkan textbox jika tidak valid
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder:
+                (ctx) => AlertDialog(
+                  title: const Text('Nomor Segel Tidak Valid'),
+                  content: Text(
+                    'Nomor segel "$sealNumber" tidak terdaftar. Mohon masukkan nomor segel yang valid.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _sealNum1Controller.clear(); // Kosongkan textbox
+                        // Penting: Hapus draft data jika segel tidak valid
+                        _saveDraftData(containerAndSeal1: true);
+                        setState(() {
+                          _sealNumberSuggestions = []; // Bersihkan saran juga
+                        });
+                      },
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+          );
+        }
+      }
+      return isValid;
+    } catch (e) {
+      debugPrint('Error validating seal number: $e');
+      setState(() {
+        _isSealNumberValid = false; // Set ke false jika ada error API
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error validasi nomor segel: $e')),
+        );
+      }
+      return false; // Kembalikan false jika ada error
+    }
+  }
+
+  // Modifikasi _submitArrival untuk menyertakan validasi nomor segel
   Future<void> _submitArrival() async {
+    // Validasi apakah field container dan seal 1 kosong
     if (_containerNumController.text.isEmpty ||
         _sealNum1Controller.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Lengkapi semua field')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Lengkapi semua field (Container Number dan Seal Number 1)',
+          ),
+        ),
+      );
       return;
+    }
+
+    // Validasi nomor segel 1 sebelum melanjutkan
+    final isValidSeal = await _validateSealNumber(_sealNum1Controller.text);
+    if (!isValidSeal) {
+      return; // Hentikan proses submit jika nomor segel tidak valid
     }
 
     setState(() {
@@ -354,7 +486,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
         ).showSnackBar(const SnackBar(content: Text('Berhasil Sampai Pabrik')));
 
         await _fetchTaskData();
-        setState(() {});
+        setState(() {}); // Refresh UI setelah berhasil submit
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal: ${response['message']}')),
@@ -457,6 +589,18 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
         truckNameController: _truckNameController,
         containerNumController: _containerNumController,
         sealNum1Controller: _sealNum1Controller,
+        sealNum1FocusNode: _sealNum1FocusNode, // Pass the FocusNode
+        sealNumberSuggestions: _sealNumberSuggestions,
+        isSealNumberValid: _isSealNumberValid,
+        onSealNum1Changed: (value) {
+          _saveDraftData(containerAndSeal1: true);
+          _fetchSealNumberSuggestions(value); // Fetch suggestions on change
+        },
+        onSealNumberSuggestionSelected: (suggestion) {
+          _sealNum1Controller.text = suggestion;
+          _sealNumberSuggestions = []; // Clear suggestions after selection
+          _saveDraftData(containerAndSeal1: true);
+        },
         sealNum2Controller: _sealNum2Controller,
         selectedTipeContainer: _selectedTipeContainer,
         onTipeContainerChanged: (value) {
@@ -477,13 +621,18 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(150.0),
-        child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(150.0),
+          child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
+        ),
+        body: IndexedStack(index: _currentIndex, children: _buildPages()),
+        bottomNavigationBar: _buildFloatingNavBar(theme),
       ),
-      body: IndexedStack(index: _currentIndex, children: _buildPages()),
-      bottomNavigationBar: _buildFloatingNavBar(theme),
     );
   }
 
