@@ -403,7 +403,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
                 (ctx) => AlertDialog(
                   title: const Text('Nomor Segel Tidak Valid'),
                   content: Text(
-                    'Nomor segel "$sealNumber" tidak terdaftar. Mohon masukkan nomor segel yang valid.',
+                    'Nomor segel "$sealNumber" tidak valid. Mohon masukkan nomor segel yang valid.',
                   ),
                   actions: [
                     TextButton(
@@ -549,13 +549,36 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     });
 
     try {
-      // Implement your port arrival logic here
-      // Example:
-      // final response = await _supirService.submitPortArrival(...);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Berhasil sampai pelabuhan')),
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
+
+      final now = DateTime.now();
+      final postArrivalDate =
+          '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
+      final postArrivalTime =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+      final response = await _supirService.submitPortArrival(
+        taskId: _taskData?['task_id'],
+        postArrivalDate: postArrivalDate,
+        postArrivalTime: postArrivalTime,
+        longitude: position.longitude,
+        latitude: position.latitude,
+      );
+
+      if (response['status'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Berhasil sampai pelabuhan'),
+          ),
+        );
+        await _fetchTaskData(); // Refresh data tugas
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'Gagal mengirim data')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(
         context,

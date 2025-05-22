@@ -63,6 +63,7 @@ class SupirService {
   String get _driverArrivalUrl => '$_baseUrl/driver_arrival_input';
   String get _driverDepartureUrl => '$_baseUrl/driver_departure_input';
   String get _sealUrl => '$_baseUrl/get_seal_number';
+  String get _portArrivalUrl => '$_baseUrl/arrived_to_harbor';
 
   Future<void> _initializeNotifications() async {
     final status = await Permission.notification.request();
@@ -315,6 +316,40 @@ class SupirService {
       }
     } catch (e) {
       print('❌ Error in submitDeparture: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> submitPortArrival({
+    required int taskId,
+    required String postArrivalDate,
+    required String postArrivalTime,
+    required double longitude,
+    required double latitude,
+  }) async {
+    try {
+      final token = await _authService.getValidToken();
+      if (token == null) throw Exception('Token tidak tersedia');
+
+      final response = await http.post(
+        Uri.parse(_portArrivalUrl),
+        body: {
+          'token': token,
+          'id_task': taskId.toString(),
+          'post_arrival_date': postArrivalDate,
+          'post_arrival_time': postArrivalTime,
+          'longitude': longitude.toString(),
+          'latitude': latitude.toString(),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Gagal mengirim data kedatangan pelabuhan');
+      }
+    } catch (e) {
+      print('❌ Error in submitPortArrival: $e');
       rethrow;
     }
   }
