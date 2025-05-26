@@ -103,6 +103,7 @@ class _MainPelabuhanState extends State<MainPelabuhan>
 
     try {
       final orders = await _pelabuhanService.fetchOrders();
+      final archiveData = await _pelabuhanService.fetchArchiveOrders();
 
       _checkForNewOrdersNotification(orders);
 
@@ -174,14 +175,7 @@ class _MainPelabuhanState extends State<MainPelabuhan>
               return isIncomplete && !isAlreadyArchived;
             }).toList();
 
-        archiveOrders =
-            orders.where((o) {
-              final noRo = (o['no_ro'] ?? '').toString().trim();
-              if (noRo.isEmpty) return false;
-
-              final fotoRC = (o['foto_rc'] ?? '').toString().trim();
-              return fotoRC.isNotEmpty;
-            }).toList();
+        archiveOrders = archiveData;
 
         archiveOrders.sort((b, a) {
           final tglA = a['tgl_rc_dibuat'] ?? '';
@@ -198,7 +192,13 @@ class _MainPelabuhanState extends State<MainPelabuhan>
       });
       // Bersihkan daftar notifikasi untuk order yang sudah memiliki foto RC
       final completedOrderIds =
-          archiveOrders.map((o) => o['so_id'].toString()).toList();
+          archiveOrders
+              .where(
+                (o) => (o['foto_rc']?.toString().trim().isNotEmpty ?? false),
+              )
+              .map((o) => o['so_id'].toString())
+              .toList();
+
       _notifiedOrderIds.removeWhere((id) => completedOrderIds.contains(id));
       await prefs.setStringList('notified_order_ids', _notifiedOrderIds);
     } catch (e) {

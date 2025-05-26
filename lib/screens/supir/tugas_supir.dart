@@ -165,7 +165,9 @@ class TugasSupirScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                               child: Image.network(
                                 fotoRC,
-                                fit: BoxFit.cover,
+                                fit:
+                                    BoxFit
+                                        .contain, // Coba BoxFit.contain agar gambar utuh terlihat
                                 width: double.infinity,
                                 errorBuilder:
                                     (context, error, stackTrace) =>

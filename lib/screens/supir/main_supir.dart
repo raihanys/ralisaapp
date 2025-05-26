@@ -230,11 +230,50 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
             _isWaitingAssignment =
                 (task['task_assign'] ?? 0) != 0 &&
                 (task['arrival_date'] == null || task['arrival_date'] == '-');
+
+            // --- PERUBAHAN DI SINI ---
+            // Jika nilai dari database adalah null atau '-', set sebagai string kosong.
+            _containerNumController.text =
+                (task['container_num'] == null || task['container_num'] == '-')
+                    ? ''
+                    : task['container_num']
+                        .toString(); // Pastikan tipe data string
+
+            _sealNum1Controller.text =
+                (task['seal_num1'] == null || task['seal_num1'] == '-')
+                    ? ''
+                    : task['seal_num1'].toString(); // Pastikan tipe data string
+
+            _sealNum2Controller.text =
+                (task['seal_num2'] == null || task['seal_num2'] == '-')
+                    ? ''
+                    : task['seal_num2'].toString(); // Pastikan tipe data string
+            // --- AKHIR PERUBAHAN ---
+          });
+        }
+      } else {
+        // Clear controllers if no task or error
+        if (mounted) {
+          setState(() {
+            _taskData = null;
+            _isWaitingAssignment = false;
+            _containerNumController.clear();
+            _sealNum1Controller.clear();
+            _sealNum2Controller.clear();
           });
         }
       }
     } catch (e) {
       debugPrint('Fetch Task Error: $e');
+      if (mounted) {
+        setState(() {
+          _taskData = null;
+          _isWaitingAssignment = false;
+          _containerNumController.clear();
+          _sealNum1Controller.clear();
+          _sealNum2Controller.clear();
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoadingTugas = false);

@@ -40,6 +40,10 @@ class PelabuhanService {
       'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc';
   // final String _submitRcUrl =
   //     'https://api3.ralisa.co.id/index.php/api/agent_create_rc';
+  final String _archiveUrl =
+      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_archive';
+  // final String _archiveUrl =
+  //     'http://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_archive';
 
   PelabuhanService(this._authService);
 
@@ -68,6 +72,17 @@ class PelabuhanService {
     final token = await _authService.getValidToken();
     if (token == null) return [];
     final response = await http.get(Uri.parse('$_ordersUrl?token=$token'));
+    if (response.statusCode == 200) {
+      final jsonData = json.decode(response.body);
+      return jsonData['data'] is List ? jsonData['data'] : [];
+    }
+    return [];
+  }
+
+  Future<List<dynamic>> fetchArchiveOrders() async {
+    final token = await _authService.getValidToken();
+    if (token == null) return [];
+    final response = await http.get(Uri.parse('$_archiveUrl?token=$token'));
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
       return jsonData['data'] is List ? jsonData['data'] : [];
@@ -146,8 +161,9 @@ class PelabuhanService {
             final lastOrderId = prefs.getString('lastOrderId');
             final newOrder = orders.first;
             final currentOrderId = newOrder['so_id'].toString();
+            final fotoRc = newOrder['foto_rc']?.toString().trim() ?? '';
 
-            if (currentOrderId != lastOrderId) {
+            if (fotoRc.isEmpty && currentOrderId != lastOrderId) {
               await prefs.setString('lastOrderId', currentOrderId);
               await showNewOrderNotification(
                 orderId: currentOrderId,
