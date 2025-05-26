@@ -86,7 +86,10 @@ class TugasSupirScreen extends StatelessWidget {
     final fotoRC = taskData?['foto_rc_url'];
 
     // Menunggu penugasan
-    if (isWaitingAssignment && taskAssign == 0) {
+    final bool showWaitingAssignment =
+        isWaitingAssignment ||
+        (taskAssign == 0 && (taskData?['queue'] ?? 0) > 0);
+    if (showWaitingAssignment) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

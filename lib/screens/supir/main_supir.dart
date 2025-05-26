@@ -212,48 +212,77 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   }
 
   Future<void> _fetchTaskData() async {
-    if (mounted) {
-      setState(() {
-        _isLoadingTugas = true;
-      });
-    }
+    if (!mounted) return; // Check if the widget is still in the tree
+    setState(() {
+      _isLoadingTugas = true;
+    });
 
     try {
-      final response = await _supirService.getTaskDriver();
+      final response = await _supirService.getTaskDriver(); //
 
-      if (response['error'] == false && response['data'].isNotEmpty) {
-        final task = response['data'][0];
+      if (!mounted) return; // Check mounted again before setState
 
-        if (mounted) {
-          setState(() {
-            _taskData = task;
-            _isWaitingAssignment =
-                (task['task_assign'] ?? 0) != 0 &&
-                (task['arrival_date'] == null || task['arrival_date'] == '-');
+      if (response['error'] == false &&
+          response['data'] != null &&
+          response['data'].isNotEmpty) {
+        //
+        List<dynamic> tasks = response['data'];
+        Map<String, dynamic>? selectedTask;
 
-            // --- PERUBAHAN DI SINI ---
-            // Jika nilai dari database adalah null atau '-', set sebagai string kosong.
-            _containerNumController.text =
-                (task['container_num'] == null || task['container_num'] == '-')
-                    ? ''
-                    : task['container_num']
-                        .toString(); // Pastikan tipe data string
-
-            _sealNum1Controller.text =
-                (task['seal_num1'] == null || task['seal_num1'] == '-')
-                    ? ''
-                    : task['seal_num1'].toString(); // Pastikan tipe data string
-
-            _sealNum2Controller.text =
-                (task['seal_num2'] == null || task['seal_num2'] == '-')
-                    ? ''
-                    : task['seal_num2'].toString(); // Pastikan tipe data string
-            // --- AKHIR PERUBAHAN ---
-          });
+        // 1. Try to find an active task assignment
+        // Using a try-catch for firstWhere if no element satisfies and orElse is not suitable/older Dart
+        try {
+          selectedTask = tasks.firstWhere((t) => (t['task_assign'] ?? 0) != 0);
+        } catch (e) {
+          selectedTask = null;
         }
-      } else {
-        // Clear controllers if no task or error
-        if (mounted) {
+
+        // 2. If no active task, try to find a "waiting for assignment" state (queue == 1 and task_assign == 0)
+        if (selectedTask == null) {
+          try {
+            selectedTask = tasks.firstWhere(
+              (t) => (t['queue'] ?? 0) == 1 && (t['task_assign'] ?? 0) == 0,
+            );
+          } catch (e) {
+            selectedTask = null;
+          }
+        }
+
+        // 3. If still no specific state found, default to the first item if it exists.
+        // This item usually dictates if the "Ready" button should be shown.
+        if (selectedTask == null && tasks.isNotEmpty) {
+          selectedTask = tasks[0]; //
+        }
+
+        if (selectedTask != null) {
+          setState(() {
+            _taskData = selectedTask;
+            // Determine _isWaitingAssignment based on the selectedTask
+            // It's waiting if a task is assigned OR if queue is >0 and no task assigned yet.
+            _isWaitingAssignment =
+                ((selectedTask!['task_assign'] ?? 0) != 0) ||
+                ((selectedTask!['queue'] ?? 0) != 0 &&
+                    (selectedTask!['task_assign'] ?? 0) == 0); //
+
+            // Update TextEditingControllers, ensuring to handle null or '-' from API
+            _containerNumController.text =
+                (selectedTask!['container_num'] == null ||
+                        selectedTask!['container_num'] == '-')
+                    ? ''
+                    : selectedTask!['container_num'].toString(); //
+            _sealNum1Controller.text =
+                (selectedTask!['seal_num1'] == null ||
+                        selectedTask!['seal_num1'] == '-')
+                    ? ''
+                    : selectedTask!['seal_num1'].toString(); //
+            _sealNum2Controller.text =
+                (selectedTask!['seal_num2'] == null ||
+                        selectedTask!['seal_num2'] == '-')
+                    ? ''
+                    : selectedTask!['seal_num2'].toString(); //
+          });
+        } else {
+          // No relevant task data found, clear current task related state
           setState(() {
             _taskData = null;
             _isWaitingAssignment = false;
@@ -262,6 +291,15 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
             _sealNum2Controller.clear();
           });
         }
+      } else {
+        // Error or no data, clear current task related state
+        setState(() {
+          _taskData = null;
+          _isWaitingAssignment = false;
+          _containerNumController.clear();
+          _sealNum1Controller.clear();
+          _sealNum2Controller.clear();
+        });
       }
     } catch (e) {
       debugPrint('Fetch Task Error: $e');
@@ -322,12 +360,14 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
 
   Future<void> _sendReady() async {
     if (_selectedTipeContainer == null || _truckNameController.text.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Lengkapi semua field')));
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoadingButton = true;
     });
@@ -342,28 +382,36 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
         latitude: position.latitude,
         tipeContainer: _selectedTipeContainer!,
         truckName: _truckNameController.text,
-      );
+      ); //
+
+      if (!mounted) return;
 
       if (response['error'] == false) {
         setState(() {
-          _isWaitingAssignment = true;
+          // While we set _isWaitingAssignment true locally for immediate feedback,
+          // _fetchTaskData will determine the definitive state from the server.
+          _isWaitingAssignment = true; //
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ready dikirim, menunggu tugas...')),
         );
+        await _fetchTaskData(); // <--- ADD THIS LINE to refresh data immediately
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal Ready: ${response['message']}')),
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      setState(() {
-        _isLoadingButton = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingButton = false;
+        });
+      }
     }
   }
 

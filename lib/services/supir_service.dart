@@ -412,7 +412,10 @@ class SupirService {
     final prefs = await SharedPreferences.getInstance();
     final String notificationKey = 'notified_rc_$taskId';
 
-    if (fotoRcUrl != null && fotoRcUrl != '-') {
+    if (fotoRcUrl != null &&
+        fotoRcUrl != '-' &&
+        (task['post_arrival_date'] == null ||
+            task['post_arrival_date'] == '-')) {
       if (!prefs.containsKey(notificationKey)) {
         await _showNotification(
           id: 2,
@@ -585,6 +588,7 @@ class SupirBackgroundService {
     final taskAssign = task['task_assign'] ?? 0;
     final arrivalDate = task['arrival_date'];
     final fotoRCUrl = task['foto_rc_url']?.toString() ?? '';
+    final postArrivalDate = task['post_arrival_date']?.toString() ?? '';
 
     final prefs = await SharedPreferences.getInstance();
 
@@ -610,7 +614,8 @@ class SupirBackgroundService {
 
     // Notifikasi RC Tersedia
     final String rcNotificationKey = 'notified_rc_$taskId';
-    if (fotoRCUrl.isNotEmpty && fotoRCUrl != '-') {
+    if ((fotoRCUrl.isNotEmpty && fotoRCUrl != '-') &&
+        (postArrivalDate.isEmpty || postArrivalDate == '-')) {
       if (!prefs.containsKey(rcNotificationKey)) {
         print(
           '  -> Triggering RC Available Notification (Simplified Logic) for Task ID: $taskId',
@@ -624,7 +629,6 @@ class SupirBackgroundService {
         await prefs.setBool(rcNotificationKey, true);
       }
     } else {
-      // Jika foto RC belum tersedia atau sudah tidak relevan, hapus status notifikasi RC
       if (prefs.containsKey(rcNotificationKey)) {
         await prefs.remove(rcNotificationKey);
       }
