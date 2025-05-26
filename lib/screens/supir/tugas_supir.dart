@@ -78,7 +78,7 @@ class TugasSupirScreen extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final showReadyButton = taskData?['queue'] == 0;
+    final showReadyButton = taskData?['show_ready_button'] == 1;
     final taskAssign = taskData?['task_assign'] ?? 0;
     final arrivalDate = taskData?['arrival_date'];
     final departureDate = taskData?['departure_date'];
@@ -86,10 +86,7 @@ class TugasSupirScreen extends StatelessWidget {
     final fotoRC = taskData?['foto_rc_url'];
 
     // Menunggu penugasan
-    final bool showWaitingAssignment =
-        isWaitingAssignment ||
-        (taskAssign == 0 && (taskData?['queue'] ?? 0) > 0);
-    if (showWaitingAssignment) {
+    if (taskAssign == 0) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
