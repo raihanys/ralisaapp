@@ -49,8 +49,8 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
 
   // Seal Validation
   List<String> _sealNumberSuggestions = [];
-  bool _isSealNumberValid = true; // To track validation status for UI
-  FocusNode _sealNum1FocusNode = FocusNode(); // For detecting unfocus
+  bool _isSealNumberValid = true;
+  FocusNode _sealNum1FocusNode = FocusNode();
 
   @override
   void initState() {

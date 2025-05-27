@@ -104,13 +104,31 @@ class TugasSupirScreen extends StatelessWidget {
     // Sampai Pelabuhan
     if (taskData?['post_arrival_date'] != null &&
         taskData?['post_arrival_date'] != '-') {
-      return Center(
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tugas Selesai'),
-            ElevatedButton(
-              onPressed: () {}, // Kosongkan untuk sementara
-              child: Text('Selesai'),
+            const Text(
+              'Detail Tugas',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            _buildTaskInfoRow('Status Tugas', 'Sampai di Pelabuhan'),
+            _buildTaskInfoRow(
+              'Tgl/Jam Sampai Pelabuhan',
+              '${taskData?['post_arrival_date'] ?? '-'} ${taskData?['post_arrival_time'] ?? '-'}',
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Tambahkan logika atau navigasi setelah tugas selesai
+                },
+                child: const Text('Tugas Selesai'),
+              ),
             ),
           ],
         ),
