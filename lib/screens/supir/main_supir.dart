@@ -114,6 +114,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
 
   void _startBackgroundProcesses() {
     // Polling tugas setiap 30 detik
+    _loadDraftData();
     _taskPollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _fetchTaskData();
     });
@@ -131,14 +132,27 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
 
   Future<void> _loadDraftData() async {
     final prefs = await SharedPreferences.getInstance();
+    final draftContainer = prefs.getString('draft_container_num');
+    final draftSeal1 = prefs.getString('draft_seal_num1');
+    final draftSeal2 = prefs.getString('draft_seal_num2');
     _containerNumController.text = prefs.getString('draft_container_num') ?? '';
     _sealNum1Controller.text = prefs.getString('draft_seal_num1') ?? '';
     _sealNum2Controller.text = prefs.getString('draft_seal_num2') ?? '';
+    _truckNameController.text = prefs.getString('draft_truck') ?? '';
+
+    // Jika ada draft, gunakan nilai draft. Jika tidak, baru ambil dari API
+    _containerNumController.text = draftContainer ?? '';
+    _sealNum1Controller.text = draftSeal1 ?? '';
+    _sealNum2Controller.text = draftSeal2 ?? '';
+
+    // Panggil fetchTaskData() setelah draft di-load
+    await _fetchTaskData();
   }
 
   Future<void> _saveDraftData({
     bool containerAndSeal1 = false,
     bool seal2 = false,
+    bool truck = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (containerAndSeal1) {
@@ -150,6 +164,9 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     }
     if (seal2) {
       await prefs.setString('draft_seal_num2', _sealNum2Controller.text);
+    }
+    if (truck) {
+      await prefs.setString('draft_truck', _truckNameController.text);
     }
   }
 
@@ -228,34 +245,27 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
           setState(() {
             _taskData = task;
 
-            // --- PERUBAHAN DI SINI ---
-            // Jika nilai dari database adalah null atau '-', set sebagai string kosong.
-            _containerNumController.text =
-                (task['container_num'] == null || task['container_num'] == '-')
-                    ? ''
-                    : task['container_num']
-                        .toString(); // Pastikan tipe data string
+            if (_containerNumController.text.isEmpty &&
+                (task['container_num'] != null &&
+                    task['container_num'] != '-')) {
+              _containerNumController.text = task['container_num'].toString();
+            }
 
-            _sealNum1Controller.text =
-                (task['seal_num1'] == null || task['seal_num1'] == '-')
-                    ? ''
-                    : task['seal_num1'].toString(); // Pastikan tipe data string
+            if (_sealNum1Controller.text.isEmpty &&
+                (task['seal_num1'] != null && task['seal_num1'] != '-')) {
+              _sealNum1Controller.text = task['seal_num1'].toString();
+            }
 
-            _sealNum2Controller.text =
-                (task['seal_num2'] == null || task['seal_num2'] == '-')
-                    ? ''
-                    : task['seal_num2'].toString(); // Pastikan tipe data string
-            // --- AKHIR PERUBAHAN ---
+            if (_sealNum2Controller.text.isEmpty &&
+                (task['seal_num2'] != null && task['seal_num2'] != '-')) {
+              _sealNum2Controller.text = task['seal_num2'].toString();
+            }
           });
         }
       } else {
-        // Clear controllers if no task or error
         if (mounted) {
           setState(() {
             _taskData = null;
-            _containerNumController.clear();
-            _sealNum1Controller.clear();
-            _sealNum2Controller.clear();
           });
         }
       }
@@ -264,9 +274,6 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _taskData = null;
-          _containerNumController.clear();
-          _sealNum1Controller.clear();
-          _sealNum2Controller.clear();
         });
       }
     } finally {
@@ -512,6 +519,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
 
       if (response['error'] == false) {
         final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('draft_truck');
         await prefs.remove('draft_container_num');
         await prefs.remove('draft_seal_num1');
 

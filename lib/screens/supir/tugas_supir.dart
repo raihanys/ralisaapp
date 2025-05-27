@@ -21,7 +21,7 @@ class TugasSupirScreen extends StatelessWidget {
   final VoidCallback onArrivalPressed;
   final VoidCallback onDeparturePressed;
   final VoidCallback onPortArrivalPressed;
-  final Function({bool containerAndSeal1, bool seal2}) onSaveDraft;
+  final Function({bool containerAndSeal1, bool seal2, bool truck}) onSaveDraft;
 
   const TugasSupirScreen({
     Key? key,
@@ -87,6 +87,8 @@ class TugasSupirScreen extends StatelessWidget {
 
     // Menunggu penugasan
     if (taskAssign == 0) {
+      // For Testing
+      // if (taskAssign == 0 && taskData?['queue'] > 0) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -411,6 +413,7 @@ class TugasSupirScreen extends StatelessWidget {
             const SizedBox(height: 8),
             TextField(
               controller: truckNameController,
+              onChanged: (value) => onSaveDraft(truck: true),
               decoration: const InputDecoration(
                 hintText: 'Masukkan Nopol Truck',
                 border: OutlineInputBorder(),
