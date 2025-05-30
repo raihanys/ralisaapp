@@ -9,6 +9,7 @@ import 'tugas_supir.dart';
 import '../../services/supir_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class MainSupir extends StatefulWidget {
   const MainSupir({Key? key}) : super(key: key);
@@ -26,6 +27,12 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
   Timer? _debounceTimer;
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  final RefreshController _absenRefreshController = RefreshController(
+    initialRefresh: false,
+  );
+  final RefreshController _tugasRefreshController = RefreshController(
+    initialRefresh: false,
+  );
 
   // Data untuk Absen
   bool _isLoadingAbsen = false;
@@ -76,6 +83,8 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     _sealNum1FocusNode.removeListener(_onSealNum1FocusChange);
     _sealNum1FocusNode.dispose();
     _debounceTimer?.cancel();
+    _absenRefreshController.dispose();
+    _tugasRefreshController.dispose();
     super.dispose();
   }
 
@@ -632,52 +641,255 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     }
   }
 
+  void _onAbsenRefresh() async {
+    try {
+      await _loadAbsenStatus();
+      _absenRefreshController.refreshCompleted();
+    } catch (e) {
+      _absenRefreshController.refreshFailed();
+    }
+  }
+
+  void _onTugasRefresh() async {
+    try {
+      await _fetchTaskData();
+      _tugasRefreshController.refreshCompleted();
+    } catch (e) {
+      _tugasRefreshController.refreshFailed();
+    }
+  }
+
   final List<String> _titles = ['Absen', 'Tugas'];
 
   List<Widget> _buildPages() {
     return [
-      AbsenSupirScreen(
-        isLoading: _isLoadingAbsen,
-        showButton: _showAbsenButton,
-        statusText: _statusText,
-        errorMessage: _errorMessageAbsen,
-        latitude: _latitude,
-        longitude: _longitude,
-        onAbsenPressed: _handleAbsen,
+      // Untuk Absen
+      SmartRefresher(
+        controller: _absenRefreshController,
+        onRefresh: _onAbsenRefresh,
+        enablePullDown: true,
+        enablePullUp: false,
+        header: CustomHeader(
+          builder: (BuildContext context, RefreshStatus? mode) {
+            Widget body;
+            if (mode == RefreshStatus.idle) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.arrow_downward,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Tarik ke bawah untuk refresh",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else if (mode == RefreshStatus.refreshing) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Memuat data absen...",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else if (mode == RefreshStatus.failed) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red),
+                  SizedBox(height: 8),
+                  Text(
+                    "Gagal memuat, coba lagi",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ],
+              );
+            } else if (mode == RefreshStatus.completed) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Data absen diperbarui",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.arrow_upward,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Lepaskan untuk refresh",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            }
+            return Container(height: 50, child: Center(child: body));
+          },
+        ),
+        child: AbsenSupirScreen(
+          isLoading: _isLoadingAbsen,
+          showButton: _showAbsenButton,
+          statusText: _statusText,
+          errorMessage: _errorMessageAbsen,
+          latitude: _latitude,
+          longitude: _longitude,
+          onAbsenPressed: _handleAbsen,
+        ),
       ),
-      TugasSupirScreen(
-        isLoading: _isLoadingTugas,
-        taskData: _taskData,
-        isWaitingAssignment: _isWaitingAssignment,
-        isLoadingButton: _isLoadingButton,
-        isSubmittingArrival: _isSubmittingArrival,
-        truckNameController: _truckNameController,
-        containerNumController: _containerNumController,
-        sealNum1Controller: _sealNum1Controller,
-        sealNum1FocusNode: _sealNum1FocusNode, // Pass the FocusNode
-        sealNumberSuggestions: _sealNumberSuggestions,
-        isSealNumberValid: _isSealNumberValid,
-        onSealNum1Changed: (value) {
-          _saveDraftData(containerAndSeal1: true);
-          _fetchSealNumberSuggestions(value); // Fetch suggestions on change
-        },
-        onSealNumberSuggestionSelected: (suggestion) {
-          _sealNum1Controller.text = suggestion;
-          _sealNumberSuggestions = []; // Clear suggestions after selection
-          _saveDraftData(containerAndSeal1: true);
-        },
-        sealNum2Controller: _sealNum2Controller,
-        selectedTipeContainer: _selectedTipeContainer,
-        onTipeContainerChanged: (value) {
-          setState(() {
-            _selectedTipeContainer = value;
-          });
-        },
-        onReadyPressed: _sendReady,
-        onArrivalPressed: _submitArrival,
-        onDeparturePressed: _sendDeparture,
-        onPortArrivalPressed: _handlePortArrival,
-        onSaveDraft: _saveDraftData,
+
+      // Untuk Tugas
+      SmartRefresher(
+        controller: _tugasRefreshController,
+        onRefresh: _onTugasRefresh,
+        enablePullDown: true,
+        enablePullUp: false,
+        header: CustomHeader(
+          builder: (BuildContext context, RefreshStatus? mode) {
+            Widget body;
+            if (mode == RefreshStatus.idle) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.arrow_downward,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Tarik ke bawah untuk refresh",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else if (mode == RefreshStatus.refreshing) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Memuat data tugas...",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else if (mode == RefreshStatus.failed) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red),
+                  SizedBox(height: 8),
+                  Text(
+                    "Gagal memuat, coba lagi",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ],
+              );
+            } else if (mode == RefreshStatus.completed) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Data tugas diperbarui",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.arrow_upward,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Lepaskan untuk refresh",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            }
+            return Container(height: 50, child: Center(child: body));
+          },
+        ),
+        child: TugasSupirScreen(
+          isLoading: _isLoadingTugas,
+          taskData: _taskData,
+          isWaitingAssignment: _isWaitingAssignment,
+          isLoadingButton: _isLoadingButton,
+          isSubmittingArrival: _isSubmittingArrival,
+          truckNameController: _truckNameController,
+          containerNumController: _containerNumController,
+          sealNum1Controller: _sealNum1Controller,
+          sealNum1FocusNode: _sealNum1FocusNode, // Pass the FocusNode
+          sealNumberSuggestions: _sealNumberSuggestions,
+          isSealNumberValid: _isSealNumberValid,
+          onSealNum1Changed: (value) {
+            _saveDraftData(containerAndSeal1: true);
+            _fetchSealNumberSuggestions(value); // Fetch suggestions on change
+          },
+          onSealNumberSuggestionSelected: (suggestion) {
+            _sealNum1Controller.text = suggestion;
+            _sealNumberSuggestions = []; // Clear suggestions after selection
+            _saveDraftData(containerAndSeal1: true);
+          },
+          sealNum2Controller: _sealNum2Controller,
+          selectedTipeContainer: _selectedTipeContainer,
+          onTipeContainerChanged: (value) {
+            setState(() {
+              _selectedTipeContainer = value;
+            });
+          },
+          onReadyPressed: _sendReady,
+          onArrivalPressed: _submitArrival,
+          onDeparturePressed: _sendDeparture,
+          onPortArrivalPressed: _handlePortArrival,
+          onSaveDraft: _saveDraftData,
+        ),
       ),
     ];
   }
