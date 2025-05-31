@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/auth_service.dart';
 import '../../services/pelabuhan_service.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class MainPelabuhan extends StatefulWidget {
   const MainPelabuhan({Key? key}) : super(key: key);
@@ -29,6 +30,7 @@ class _MainPelabuhanState extends State<MainPelabuhan>
   List<String> _notifiedOrderIds = [];
   late AuthService _authService;
   late PelabuhanService _pelabuhanService;
+  final RefreshController _refreshController = RefreshController();
 
   @override
   void initState() {
@@ -201,9 +203,11 @@ class _MainPelabuhanState extends State<MainPelabuhan>
 
       _notifiedOrderIds.removeWhere((id) => completedOrderIds.contains(id));
       await prefs.setStringList('notified_order_ids', _notifiedOrderIds);
+      _refreshController.refreshCompleted();
     } catch (e) {
       print('Error fetching orders: $e');
       setState(() => _isLoading = false);
+      _refreshController.refreshFailed();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal memuat data: ${e.toString()}')),
       );
@@ -248,26 +252,91 @@ class _MainPelabuhanState extends State<MainPelabuhan>
         preferredSize: const Size.fromHeight(150.0),
         child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : IndexedStack(
-                index: _currentIndex,
+      body: SmartRefresher(
+        // <-- Ganti RefreshIndicator dengan SmartRefresher
+        controller: _refreshController,
+        enablePullDown: true,
+        enablePullUp: false,
+        header: CustomHeader(
+          builder: (BuildContext context, RefreshStatus? mode) {
+            Widget body;
+            if (mode == RefreshStatus.idle) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  InboxPelabuhan(
-                    orders: inboxOrders,
-                    onOrderUpdated: _fetchOrders,
+                  Icon(
+                    Icons.arrow_downward,
+                    color: Theme.of(context).primaryColor,
                   ),
-                  ProcessPelabuhan(
-                    orders: processOrders,
-                    onOrderUpdated: _fetchOrders,
-                  ),
-                  ArchivePelabuhan(
-                    orders: archiveOrders,
-                    onOrderUpdated: _fetchOrders,
+                  SizedBox(height: 8),
+                  Text(
+                    "Tarik ke bawah untuk refresh",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
                   ),
                 ],
-              ),
+              );
+            } else if (mode == RefreshStatus.refreshing) {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Memuat data order...",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            } else {
+              body = Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.arrow_upward,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Lepaskan untuk refresh",
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              );
+            }
+            return Container(height: 50, child: Center(child: body));
+          },
+        ),
+        onRefresh: _fetchOrders,
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    InboxPelabuhan(
+                      orders: inboxOrders,
+                      onOrderUpdated: _fetchOrders,
+                    ),
+                    ProcessPelabuhan(
+                      orders: processOrders,
+                      onOrderUpdated: _fetchOrders,
+                    ),
+                    ArchivePelabuhan(
+                      orders: archiveOrders,
+                      onOrderUpdated: _fetchOrders,
+                    ),
+                  ],
+                ),
+      ),
       bottomNavigationBar: _buildFloatingNavBar(theme),
     );
   }
