@@ -212,7 +212,7 @@ class PelabuhanService {
       'Data RO Baru Masuk!',
       'Nomor RO: $noRo',
       platformDetails,
-      payload: 'order_$orderId', // Payload untuk trigger
+      payload: 'inbox',
     );
   }
 }

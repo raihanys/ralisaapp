@@ -38,7 +38,18 @@ class _MainPelabuhanState extends State<MainPelabuhan>
     WidgetsBinding.instance.addObserver(this);
     _authService = AuthService();
     _pelabuhanService = PelabuhanService(_authService);
-    _initializeNotifications();
+    _initializeNotifications().then((_) async {
+      final NotificationAppLaunchDetails? details =
+          await flutterLocalNotificationsPlugin
+              .getNotificationAppLaunchDetails();
+
+      if (details?.didNotificationLaunchApp ?? false) {
+        if (mounted) {
+          setState(() => _currentIndex = 0);
+          await _fetchOrders();
+        }
+      }
+    });
     _isLoading = true;
     _fetchOrders();
     _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
@@ -61,8 +72,9 @@ class _MainPelabuhanState extends State<MainPelabuhan>
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        if (response.payload?.startsWith('order_') ?? false) {
-          _fetchOrders(); // Refresh data saat notifikasi diklik
+        if (mounted) {
+          setState(() => _currentIndex = 0);
+          _fetchOrders();
         }
       },
     );
@@ -253,7 +265,6 @@ class _MainPelabuhanState extends State<MainPelabuhan>
         child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
       ),
       body: SmartRefresher(
-        // <-- Ganti RefreshIndicator dengan SmartRefresher
         controller: _refreshController,
         enablePullDown: true,
         enablePullUp: false,

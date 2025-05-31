@@ -65,7 +65,18 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _authService = AuthService();
     _supirService = SupirService(_authService);
-    _initializeNotifications();
+    _initializeNotifications().then((_) async {
+      final NotificationAppLaunchDetails? details =
+          await flutterLocalNotificationsPlugin
+              .getNotificationAppLaunchDetails();
+
+      if (details?.didNotificationLaunchApp ?? false) {
+        if (mounted) {
+          setState(() => _currentIndex = 1);
+          await _fetchTaskData();
+        }
+      }
+    });
     _initializeServices();
     _startBackgroundProcesses();
     _sealNum1FocusNode.addListener(_onSealNum1FocusChange);
@@ -108,7 +119,7 @@ class _MainSupirState extends State<MainSupir> with WidgetsBindingObserver {
     await flutterLocalNotificationsPlugin.initialize(
       InitializationSettings(android: initializationSettingsAndroid),
       onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        if (response.payload?.startsWith('task_') ?? false) {
+        if (mounted) {
           setState(() => _currentIndex = 1);
           await _fetchTaskData();
         }

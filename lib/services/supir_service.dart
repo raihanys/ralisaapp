@@ -495,6 +495,8 @@ class SupirBackgroundService {
       'Supir Service',
       description: 'Notifikasi untuk tugas supir',
       importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
     );
 
     await flutterLocalNotificationsPlugin
@@ -591,7 +593,6 @@ class SupirBackgroundService {
     final postArrivalDate = task['post_arrival_date']?.toString() ?? '';
 
     final prefs = await SharedPreferences.getInstance();
-
     // Notifikasi Tugas Baru
     final String newTaskNotificationKey = 'notified_task_$taskId';
     if (taskAssign != 0 && (arrivalDate == null || arrivalDate == '-')) {
@@ -601,7 +602,7 @@ class SupirBackgroundService {
           id: 1,
           title: 'Penugasan Diterima',
           body: 'Anda mendapat tugas baru.',
-          payload: 'task_$taskId',
+          payload: 'task',
         );
         await prefs.setBool(newTaskNotificationKey, true);
       }
@@ -622,9 +623,9 @@ class SupirBackgroundService {
         );
         await _showNotification(
           id: 2,
-          title: 'Foto RC Tersedia',
-          body: 'Dokumen RC telah tersedia.',
-          payload: 'rc_$taskId',
+          title: 'RC Tersedia',
+          body: 'Foto RC sudah tersedia.',
+          payload: 'rc',
         );
         await prefs.setBool(rcNotificationKey, true);
       }

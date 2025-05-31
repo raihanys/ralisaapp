@@ -85,22 +85,6 @@ class TugasSupirScreen extends StatelessWidget {
     final departureTime = taskData?['departure_time'];
     final fotoRC = taskData?['foto_rc_url'];
 
-    // Menunggu penugasan
-    if (taskAssign == 0) {
-      // For Testing
-      // if (taskAssign == 0 && taskData?['queue'] > 0) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Menunggu penugasan...'),
-          ],
-        ),
-      );
-    }
-
     // Sampai Pelabuhan
     if (taskData?['post_arrival_date'] != null &&
         taskData?['post_arrival_date'] != '-') {
@@ -400,6 +384,22 @@ class TugasSupirScreen extends StatelessWidget {
                         : const Text('Sampai Pabrik'),
               ),
             ),
+          ],
+        ),
+      );
+    }
+
+    // Menunggu penugasan
+    if (taskAssign == 0) {
+      // For Testing
+      // if (taskAssign == 0 && taskData?['queue'] > 0) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Menunggu penugasan...'),
           ],
         ),
       );
