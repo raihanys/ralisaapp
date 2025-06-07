@@ -40,7 +40,7 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   List<String> _sealSuggestions = [];
   bool _isLoadingSuggestions = false;
   Timer? _sealSearchDebounce;
-  int _activeSealField = 0; // 0 = none, 1 = seal1, 2 = seal2
+  int _activeSealField = 0; // 0 = none, 1 = seal1
   static const double _maxSuggestionHeight = 250;
   final FocusNode _sealFocusNode1 = FocusNode();
 
@@ -50,11 +50,11 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
     _authService = AuthService();
     _pelabuhanService = PelabuhanService(_authService);
     _initializeData();
-    _sealFocusNode1.addListener(() {
-      if (!_sealFocusNode1.hasFocus) {
-        _validateSealInput(_sealController.text.trim());
-      }
-    });
+    // _sealFocusNode1.addListener(() {
+    //   if (!_sealFocusNode1.hasFocus) {
+    //     _validateSealInput(_sealController.text.trim());
+    //   }
+    // });
   }
 
   @override
@@ -241,7 +241,8 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   }
 
   Future<void> _fetchSealSuggestions(String query, int fieldType) async {
-    if (query.isEmpty) {
+    // Hanya fetch suggestion jika query panjangnya >= 3 karakter
+    if (query.isEmpty || query.length < 3) {
       setState(() {
         _sealSuggestions = [];
         _activeSealField = 0;
@@ -266,7 +267,7 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          if (data['status'] == true) {
+          if (data['status'] == true && data['data'] != null) {
             final seals =
                 (data['data'] as List)
                     .map((item) => item['number'].toString())
@@ -274,10 +275,15 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
                     .toList();
 
             setState(() => _sealSuggestions = seals);
+          } else {
+            setState(() => _sealSuggestions = []);
           }
+        } else {
+          setState(() => _sealSuggestions = []);
         }
       } catch (e) {
         print('Error fetching seal suggestions: $e');
+        setState(() => _sealSuggestions = []);
       } finally {
         if (mounted) {
           setState(() => _isLoadingSuggestions = false);
@@ -287,55 +293,55 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   }
 
   Future<void> _validateSealInput(String input) async {
-    if (input.isEmpty) return;
+    // if (input.isEmpty) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? '';
+    // final prefs = await SharedPreferences.getInstance();
+    // final token = prefs.getString('token') ?? '';
 
-    try {
-      final response = await http.get(
-        Uri.parse('$_sealUrl?token=$token&seal_number=$input'),
-      );
+    // try {
+    //   final response = await http.get(
+    //     Uri.parse('$_sealUrl?token=$token&seal_number=$input'),
+    //   );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final seals =
-            (data['data'] as List)
-                .map((item) => item['number'].toString())
-                .where((number) => number.isNotEmpty)
-                .toList();
+    //   if (response.statusCode == 200) {
+    //     final data = jsonDecode(response.body);
+    //     final seals =
+    //         (data['data'] as List)
+    //             .map((item) => item['number'].toString())
+    //             .where((number) => number.isNotEmpty)
+    //             .toList();
 
-        if (!seals.contains(input)) {
-          _showInvalidInputDialog(
-            'Nomor Segel 1 tidak sesuai dengan data tersedia.',
-          );
+    //     if (!seals.contains(input)) {
+    //       _showInvalidInputDialog(
+    //         'Nomor Segel 1 tidak sesuai dengan data tersedia.',
+    //       );
 
-          // Kosongkan input setelah pop-up
-          setState(() {
-            _sealController.clear();
-          });
-        }
-      }
-    } catch (e) {
-      print('Error during seal validation: $e');
-    }
+    //       // Kosongkan input setelah pop-up
+    //       setState(() {
+    //         _sealController.clear();
+    //       });
+    //     }
+    //   }
+    // } catch (e) {
+    //   print('Error during seal validation: $e');
+    // }
   }
 
   void _showInvalidInputDialog(String message) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Peringatan'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-    );
+    // showDialog(
+    //   context: context,
+    //   builder:
+    //       (context) => AlertDialog(
+    //         title: const Text('Peringatan'),
+    //         content: Text(message),
+    //         actions: [
+    //           TextButton(
+    //             onPressed: () => Navigator.pop(context),
+    //             child: const Text('OK'),
+    //           ),
+    //         ],
+    //       ),
+    // );
   }
 
   Future<void> _submitData() async {
@@ -360,28 +366,28 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // Cek ulang seal 1 dan 2 via API
-      bool seal1Valid = await _isSealValid(_sealController.text.trim());
+      // // Cek ulang seal 1 dan 2 via API
+      // bool seal1Valid = await _isSealValid(_sealController.text.trim());
 
-      if (!seal1Valid) {
-        if (mounted) {
-          _showInvalidInputDialog('Nomor Segel 1 tidak valid saat submit.');
-          setState(() => _sealController.clear());
-        }
-        return;
-      }
+      // if (!seal1Valid) {
+      //   if (mounted) {
+      //     _showInvalidInputDialog('Nomor Segel 1 tidak valid saat submit.');
+      //     setState(() => _sealController.clear());
+      //   }
+      //   return;
+      // }
 
-      // Cek ulang status data sebelum submit
-      final isAlreadySubmitted = await _checkSubmissionStatus();
-      if (isAlreadySubmitted) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data ini sudah disubmit sebelumnya')),
-          );
-          Navigator.pop(context, true);
-        }
-        return;
-      }
+      // // Cek ulang status data sebelum submit
+      // final isAlreadySubmitted = await _checkSubmissionStatus();
+      // if (isAlreadySubmitted) {
+      //   if (mounted) {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       const SnackBar(content: Text('Data ini sudah disubmit sebelumnya')),
+      //     );
+      //     Navigator.pop(context, true);
+      //   }
+      //   return;
+      // }
 
       bool success = await _pelabuhanService.submitRC(
         soId: widget.order['so_id'].toString(),
@@ -721,6 +727,7 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
                                             ),
                                           )
                                           : null,
+                                  hintText: 'Ketik minimal 3 karakter',
                                 ),
                                 onTap:
                                     () => setState(() => _activeSealField = 1),
@@ -729,6 +736,18 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
                                   _fetchSealSuggestions(value, 1);
                                 },
                               ),
+                              if (_sealController.text.isNotEmpty &&
+                                  _sealController.text.length < 3)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    'Ketik minimal 3 karakter untuk melihat suggestion',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
                               if (_sealSuggestions.isNotEmpty &&
                                   _activeSealField == 1)
                                 _buildSuggestionDropdown(
