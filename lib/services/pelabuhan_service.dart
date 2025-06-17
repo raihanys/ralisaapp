@@ -32,18 +32,18 @@ void pelabuhanOnStart(ServiceInstance service) async {
 
 class PelabuhanService {
   final AuthService _authService;
-  final String _ordersUrl =
-      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
   // final String _ordersUrl =
-  //     'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
-  final String _submitRcUrl =
-      'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc';
+  //     'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
+  final String _ordersUrl =
+      'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
   // final String _submitRcUrl =
-  //     'https://api3.ralisa.co.id/index.php/api/agent_create_rc';
-  final String _archiveUrl =
-      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_archive';
+  //     'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc';
+  final String _submitRcUrl =
+      'https://api3.ralisa.co.id/index.php/api/agent_create_rc';
   // final String _archiveUrl =
-  //     'http://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_archive';
+  //     'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_archive';
+  final String _archiveUrl =
+      'http://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_archive';
 
   PelabuhanService(this._authService);
 
@@ -194,11 +194,11 @@ class PelabuhanService {
           icon: '@mipmap/ic_launcher',
           ledOnMs: 1000,
           ledOffMs: 500,
-          ticker: 'Data RO Baru Masuk!',
+          ticker: 'Data Order Perlu Di Proses!',
           fullScreenIntent: true,
           styleInformation: BigTextStyleInformation(
-            'Nomor RO: $noRo\nStatus: RC Perlu di Proses!',
-            contentTitle: 'Data RO Baru Masuk!',
+            'Nomor RO: $noRo\nStatus: Menunggu RC!',
+            contentTitle: 'Data Order Perlu di proses!',
             htmlFormatContentTitle: true,
           ),
         );
@@ -209,7 +209,7 @@ class PelabuhanService {
 
     await flutterLocalNotificationsPlugin.show(
       int.tryParse(orderId) ?? 0,
-      'Data RO Baru Masuk!',
+      'Data Order Perlu di proses!',
       'Nomor RO: $noRo',
       platformDetails,
       payload: 'inbox',

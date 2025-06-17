@@ -2,24 +2,44 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+// import 'package:device_info_plus/device_info_plus.dart';
 
 class AuthService {
   final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
   // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
 
-  Future<String> _getDeviceImei() async {
-    final deviceInfo = DeviceInfoPlugin();
-    final androidInfo = await deviceInfo.androidInfo;
-    return androidInfo.id;
-  }
+  // Future<String> _getDeviceImei() async {
+  //   final deviceInfo = DeviceInfoPlugin();
+  //   final androidInfo = await deviceInfo.androidInfo;
+  //   return androidInfo.id;
+  // }
 
   Future<Map<String, dynamic>?> login({
     required String username,
     required String password,
   }) async {
-    // final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
-    final imei = await _getDeviceImei();
+    // --- START: BLOK KODE UNTUK FORCE LOGIN ---
+    // Tentukan username dan password khusus untuk force login
+    if (username == 'adminlcl' && password == '12345678') {
+      print('--- Melakukan Force Login Lokal untuk Admin LCL ---');
+      final prefs = await SharedPreferences.getInstance();
+
+      // Simulasikan data login yang berhasil
+      await prefs.setBool('isLoggedIn', true); //
+      await prefs.setString('username', username); //
+      await prefs.setString('password', password); //
+      await prefs.setString('role', '4'); // Role untuk Admin LCL
+      await prefs.setString('version', '1.0'); //
+      await prefs.setString('token', 'dummy-local-token-for-admin-lcl'); //
+
+      print('Force Login Berhasil. Navigasi ke Halaman Admin LCL.');
+      // Kembalikan Map yang tidak null untuk menandakan login berhasil
+      return {'status': 'success', 'message': 'Local force login'};
+    }
+    // --- END: BLOK KODE UNTUK FORCE LOGIN ---
+
+    final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
+    // final imei = await _getDeviceImei();
 
     // Try Driver login (type 1) with version 2.7
     final driverResult = await _attemptLogin(
@@ -42,6 +62,7 @@ class AuthService {
       version: '1.0',
       imei: imei,
     );
+
     return pelabuhanResult;
   }
 

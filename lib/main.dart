@@ -2,10 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/pelabuhan/main_pelabuhan.dart';
-import 'screens/marketing/main_marketing.dart';
-import 'screens/trucking/main_trucking.dart';
 import 'screens/supir/main_supir.dart';
 import './services/auth_service.dart';
+import 'screens/lcl/main_admlcl.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,14 +23,12 @@ class MyApp extends StatelessWidget {
       final role = await authService.getRole();
       if (role != null) {
         switch (role.toLowerCase()) {
-          case 'marketing':
-            return const MainMarketing();
-          case 'trucking':
-            return const MainTrucking();
-          case '3': // Pelabuhan
-            return const MainPelabuhan();
           case '1': // Driver
             return const MainSupir();
+          case '3': // Pelabuhan
+            return const MainPelabuhan();
+          case '4': // Admin LCL
+            return const MainLCL();
         }
       }
     }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'pelabuhan/main_pelabuhan.dart';
-import 'marketing/main_marketing.dart';
-import 'trucking/main_trucking.dart';
 import 'supir/main_supir.dart';
+import 'lcl/main_admlcl.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +22,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleLogin() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
+
+    print("Mencoba login dengan:");
+    print("Username: '$username'");
+    print("Password: '$password'");
 
     if (username.isEmpty || password.isEmpty) {
       setState(() => _errorMessage = 'Username dan Password harus di isi');
@@ -67,17 +70,14 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget target;
 
     switch (role.toLowerCase()) {
-      case 'marketing':
-        target = const MainMarketing();
-        break;
-      case 'trucking':
-        target = const MainTrucking();
+      case '1': // Driver
+        target = const MainSupir();
         break;
       case '3': // Pelabuhan
         target = const MainPelabuhan();
         break;
-      case '1': // Driver
-        target = const MainSupir();
+      case '4': //Admin LCL
+        target = const MainLCL();
         break;
       default:
         setState(() => _errorMessage = 'Role tidak valid: $role');
