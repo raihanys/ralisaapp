@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScanAdmLCL extends StatefulWidget {
   const ScanAdmLCL({super.key});
@@ -16,7 +17,8 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
   final TextEditingController _tinggiController = TextEditingController();
   final TextEditingController _beratController = TextEditingController();
   String _volume = '0';
-  bool _isScanning = false;
+  MobileScannerController cameraController = MobileScannerController();
+  bool _isScanComplete = false;
 
   // Fungsi untuk menghitung volume
   void _hitungVolume() {
@@ -35,26 +37,6 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
     }
   }
 
-  // Fungsi untuk mensimulasikan scan barcode
-  void _simulateBarcodeScan() async {
-    setState(() {
-      _isScanning = true;
-    });
-
-    // Simulasi proses scanning (3 detik)
-    await Future.delayed(const Duration(seconds: 3));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isScanning = false;
-    });
-
-    // Tampilkan modal input
-    _showInputModal();
-  }
-
-  // Fungsi untuk menampilkan modal
   void _showInputModal() {
     showDialog(
       context: context,
@@ -162,24 +144,14 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      // Simpan data dan tutup modal
                       Navigator.pop(context);
-                      // Reset form
-                      _namaBarangController.clear();
-                      _tipeBarangController.clear();
-                      _panjangController.clear();
-                      _lebarController.clear();
-                      _tinggiController.clear();
-                      _beratController.clear();
-                      setState(() {
-                        _volume = '0';
-                      });
-                      // Tampilkan snackbar konfirmasi
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Data barang berhasil disimpan'),
                         ),
                       );
+                      _resetForm();
+                      _startScanning();
                     },
                     child: const Text('Simpan'),
                   ),
@@ -192,8 +164,33 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
     );
   }
 
+  void _resetForm() {
+    _namaBarangController.clear();
+    _tipeBarangController.clear();
+    _panjangController.clear();
+    _lebarController.clear();
+    _tinggiController.clear();
+    _beratController.clear();
+    setState(() {
+      _volume = '0';
+      _isScanComplete = false;
+    });
+  }
+
+  void _startScanning() {
+    setState(() {
+      _isScanComplete = false;
+    });
+    cameraController.start();
+  }
+
+  void _stopScanning() {
+    cameraController.stop();
+  }
+
   @override
   void dispose() {
+    cameraController.dispose();
     _namaBarangController.dispose();
     _tipeBarangController.dispose();
     _panjangController.dispose();
@@ -206,54 +203,53 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_isScanning)
-              Column(
+      body:
+          _isScanComplete
+              ? const Center(child: CircularProgressIndicator())
+              : Stack(
                 children: [
-                  const Icon(
-                    Icons.qr_code_scanner,
-                    size: 100,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Scanning Barcode...',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(height: 20),
-                  CircularProgressIndicator(),
-                  const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _isScanning = false;
-                      });
+                  MobileScanner(
+                    controller: cameraController,
+                    onDetect: (capture) {
+                      final List<Barcode> barcodes = capture.barcodes;
+                      if (barcodes.isNotEmpty) {
+                        _stopScanning();
+                        setState(() {
+                          _isScanComplete = true;
+                        });
+                        _showInputModal();
+                      }
                     },
-                    child: const Text('Cancel Scan'),
+                  ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 40),
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.black.withOpacity(0.4),
+                      child: const Text(
+                        'Scan Barcode Barang',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 350,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.red, width: 2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ],
-              )
-            else
-              ElevatedButton.icon(
-                onPressed: _simulateBarcodeScan,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 16,
-                  ),
-                ),
-                icon: const Icon(Icons.qr_code_scanner),
-                label: const Text(
-                  'Scan Barcode',
-                  style: TextStyle(fontSize: 18),
-                ),
               ),
-          ],
-        ),
-      ),
     );
   }
 }
