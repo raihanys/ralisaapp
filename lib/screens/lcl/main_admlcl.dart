@@ -33,19 +33,15 @@ class _MainLCLState extends State<MainLCL> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      // Menggunakan AppBar kustom yang sama seperti di main_supir.dart
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(150.0),
         child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
       ),
-      // IndexedStack untuk menjaga state setiap tab
       body: IndexedStack(index: _currentIndex, children: _pages),
-      // Menggunakan Bottom Nav Bar kustom yang sama
       bottomNavigationBar: _buildFloatingNavBar(theme),
     );
   }
 
-  // Widget AppBar kustom yang diadaptasi dari main_supir.dart
   Widget _buildCustomAppBar(BuildContext context, int currentIndex) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -69,11 +65,11 @@ class _MainLCLState extends State<MainLCL> {
           ),
           const SizedBox(height: 24),
           const Text(
-            'Aplikasi Admin LCL', // Diubah dari 'Aplikasi Supir'
+            'Aplikasi Admin LCL',
             style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
           Text(
-            _titles[currentIndex], // Judul dinamis sesuai tab yang aktif
+            _titles[currentIndex],
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ],
@@ -81,7 +77,6 @@ class _MainLCLState extends State<MainLCL> {
     );
   }
 
-  // Widget Bottom Nav Bar kustom yang diadaptasi dari main_supir.dart
   Widget _buildFloatingNavBar(ThemeData theme) {
     return Container(
       margin: const EdgeInsets.all(16),

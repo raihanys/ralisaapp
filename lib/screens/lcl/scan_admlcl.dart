@@ -16,6 +16,7 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
   final TextEditingController _tinggiController = TextEditingController();
   final TextEditingController _beratController = TextEditingController();
   String _volume = '0';
+  bool _isScanning = false;
 
   // Fungsi untuk menghitung volume
   void _hitungVolume() {
@@ -34,11 +35,30 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
     }
   }
 
-  // Fungsi untuk menampilkan modal full screen
+  // Fungsi untuk mensimulasikan scan barcode
+  void _simulateBarcodeScan() async {
+    setState(() {
+      _isScanning = true;
+    });
+
+    // Simulasi proses scanning (3 detik)
+    await Future.delayed(const Duration(seconds: 3));
+
+    if (!mounted) return;
+
+    setState(() {
+      _isScanning = false;
+    });
+
+    // Tampilkan modal input
+    _showInputModal();
+  }
+
+  // Fungsi untuk menampilkan modal
   void _showInputModal() {
     showDialog(
       context: context,
-      barrierDismissible: false, // User must tap button to close
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
           insetPadding: const EdgeInsets.all(20),
@@ -190,19 +210,47 @@ class _ScanAdmLCLState extends State<ScanAdmLCL> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton(
-              onPressed: _showInputModal,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 16,
+            if (_isScanning)
+              Column(
+                children: [
+                  const Icon(
+                    Icons.qr_code_scanner,
+                    size: 100,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Scanning Barcode...',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(height: 20),
+                  CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isScanning = false;
+                      });
+                    },
+                    child: const Text('Cancel Scan'),
+                  ),
+                ],
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: _simulateBarcodeScan,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 16,
+                  ),
+                ),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text(
+                  'Scan Barcode',
+                  style: TextStyle(fontSize: 18),
                 ),
               ),
-              child: const Text(
-                'Input Data Barang',
-                style: TextStyle(fontSize: 18),
-              ),
-            ),
           ],
         ),
       ),
