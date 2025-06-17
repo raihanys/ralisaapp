@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../login_screen.dart';
+import 'scan_admlcl.dart';
+import 'data_admlcl.dart';
 
 class MainLCL extends StatefulWidget {
   const MainLCL({super.key});
@@ -14,11 +16,7 @@ class _MainLCLState extends State<MainLCL> {
   final AuthService _authService = AuthService();
   final List<String> _titles = ['Scan', 'Data'];
 
-  // Daftar halaman/konten untuk setiap tab
-  final List<Widget> _pages = [
-    const Center(child: Text("Konten Halaman Scan")),
-    const Center(child: Text("Konten Halaman Data")),
-  ];
+  final List<Widget> _pages = [const ScanAdmLCL(), const DataAdmLCL()];
 
   void _logout(BuildContext context) async {
     await _authService.logout();
