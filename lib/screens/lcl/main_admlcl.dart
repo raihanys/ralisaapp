@@ -1,8 +1,10 @@
+// main_admlcl.dart
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../login_screen.dart';
-import 'scan_admlcl.dart';
-import 'data_admlcl.dart';
+import 'input_data_admlcl.dart';
+import 'warehouse_admlcl.dart';
+import 'container_admlcl.dart';
 
 class MainLCL extends StatefulWidget {
   const MainLCL({super.key});
@@ -12,11 +14,7 @@ class MainLCL extends StatefulWidget {
 }
 
 class _MainLCLState extends State<MainLCL> {
-  int _currentIndex = 0;
   final AuthService _authService = AuthService();
-  final List<String> _titles = ['Scan', 'Data'];
-
-  final List<Widget> _pages = [const ScanAdmLCL(), const DataAdmLCL()];
 
   void _logout(BuildContext context) async {
     await _authService.logout();
@@ -30,88 +28,140 @@ class _MainLCLState extends State<MainLCL> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(150.0),
-        child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
+        child: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 12.0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Image.asset(
+                      'assets/images/logo.png',
+                      height: 40,
+                      width: 200,
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () => _logout(context),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Aplikasi LCL',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const Text(
+                  'Home',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: _buildFloatingNavBar(theme),
+      body: const HomeScreen(),
     );
   }
+}
 
-  Widget _buildCustomAppBar(BuildContext context, int currentIndex) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Image.asset('assets/images/logo.png', height: 40, width: 200),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 3, // Ubah jadi 3 kolom
+              mainAxisSpacing: 20,
+              crossAxisSpacing: 20,
+              padding: const EdgeInsets.all(20),
+              childAspectRatio: 0.8, // Sesuaikan aspect ratio
+              children: [
+                _buildMenuCard(
+                  context,
+                  Icons.edit_document,
+                  'Input Data',
+                  Colors.blue,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const InputDataScreen()),
                   ),
                 ),
-                onPressed: () => _logout(context),
-                child: const Text('Logout'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Aplikasi Admin LCL',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-          Text(
-            _titles[currentIndex],
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                _buildMenuCard(
+                  context,
+                  Icons.warehouse,
+                  'Warehouse',
+                  Colors.green,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WarehouseScreen()),
+                  ),
+                ),
+                _buildMenuCard(
+                  context,
+                  Icons.local_shipping,
+                  'Container',
+                  Colors.orange,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ContainerScreen()),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFloatingNavBar(ThemeData theme) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
+  Widget _buildMenuCard(
+    BuildContext context,
+    IconData icon,
+    String title,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+            ),
+            child: Icon(icon, size: 40, color: color),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          backgroundColor: theme.colorScheme.surface,
-          selectedItemColor: theme.colorScheme.primary,
-          unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.6),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.qr_code_scanner_outlined),
-              activeIcon: Icon(Icons.qr_code_scanner),
-              label: 'Scan', // Tab pertama
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt_outlined),
-              activeIcon: Icon(Icons.list_alt),
-              label: 'Data', // Tab kedua
-            ),
-          ],
-        ),
       ),
     );
   }
