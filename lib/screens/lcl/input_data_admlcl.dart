@@ -11,16 +11,20 @@ class InputDataScreen extends StatefulWidget {
 class _InputDataScreenState extends State<InputDataScreen> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isScanning = true;
+  bool _isFlashOn = false;
   String? _scannedBarcode;
 
   // Controllers for the text fields in the modal
   final TextEditingController _noLpbController = TextEditingController();
   final TextEditingController _kodebarangController = TextEditingController();
+  final TextEditingController _urutanbarangController = TextEditingController();
+  final TextEditingController _totalbarangController = TextEditingController();
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _tipeController = TextEditingController();
   final TextEditingController _panjangController = TextEditingController();
   final TextEditingController _lebarController = TextEditingController();
   final TextEditingController _tinggiController = TextEditingController();
+  final TextEditingController _volumeController = TextEditingController();
   final TextEditingController _beratController = TextEditingController();
 
   // For volume calculation display
@@ -33,11 +37,14 @@ class _InputDataScreenState extends State<InputDataScreen> {
     _controller.dispose();
     _noLpbController.dispose();
     _kodebarangController.dispose();
+    _urutanbarangController.dispose();
+    _totalbarangController.dispose();
     _namaController.dispose();
     _tipeController.dispose();
     _panjangController.dispose();
     _lebarController.dispose();
     _tinggiController.dispose();
+    _volumeController.dispose();
     _beratController.dispose();
     super.dispose();
   }
@@ -49,7 +56,7 @@ class _InputDataScreenState extends State<InputDataScreen> {
 
     if (panjang != null && lebar != null && tinggi != null) {
       setState(() {
-        _volume = (panjang * lebar * tinggi).toStringAsFixed(2);
+        _volumeController.text = (panjang * lebar * tinggi).toStringAsFixed(2);
       });
     } else {
       setState(() {
@@ -58,17 +65,26 @@ class _InputDataScreenState extends State<InputDataScreen> {
     }
   }
 
+  void _toggleFlash() {
+    setState(() {
+      _isFlashOn = !_isFlashOn;
+      _controller.toggleTorch();
+    });
+  }
+
   void _showInputModal(BuildContext context) {
     // Clear previous input when showing the modal
     _noLpbController.clear();
     _kodebarangController.clear();
     _namaController.clear();
+    _urutanbarangController.clear();
+    _totalbarangController.clear();
     _tipeController.clear();
     _panjangController.clear();
     _lebarController.clear();
     _tinggiController.clear();
+    _volumeController.clear();
     _beratController.clear();
-    _volume = '0'; // Reset volume display
 
     showModalBottomSheet(
       context: context,
@@ -83,7 +99,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
           ),
           child: SingleChildScrollView(
             child: Form(
-              // Wrap with Form for validation
               key: _formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -119,7 +134,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      // Add validator
                       if (value == null || value.isEmpty) {
                         return 'No. LPB tidak boleh kosong';
                       }
@@ -134,12 +148,53 @@ class _InputDataScreenState extends State<InputDataScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      // Add validator
                       if (value == null || value.isEmpty) {
                         return 'Kode Barang tidak boleh kosong';
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(flex: 1, child: Container()),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _urutanbarangController,
+                          decoration: const InputDecoration(
+                            labelText: 'Urutan',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Urutan tidak boleh kosong';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text('/', style: TextStyle(fontSize: 20)),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _totalbarangController,
+                          decoration: const InputDecoration(
+                            labelText: 'Total',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Total tidak boleh kosong';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -149,7 +204,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      // Add validator
                       if (value == null || value.isEmpty) {
                         return 'Nama Barang tidak boleh kosong';
                       }
@@ -164,7 +218,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      // Add validator
                       if (value == null || value.isEmpty) {
                         return 'Tipe Barang tidak boleh kosong';
                       }
@@ -184,7 +237,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                           keyboardType: TextInputType.number,
                           onChanged: (_) => _hitungVolume(),
                           validator: (value) {
-                            // Add validator
                             if (value == null ||
                                 value.isEmpty ||
                                 double.tryParse(value) == null) {
@@ -205,7 +257,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                           keyboardType: TextInputType.number,
                           onChanged: (_) => _hitungVolume(),
                           validator: (value) {
-                            // Add validator
                             if (value == null ||
                                 value.isEmpty ||
                                 double.tryParse(value) == null) {
@@ -226,7 +277,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                           keyboardType: TextInputType.number,
                           onChanged: (_) => _hitungVolume(),
                           validator: (value) {
-                            // Add validator
                             if (value == null ||
                                 value.isEmpty ||
                                 double.tryParse(value) == null) {
@@ -240,11 +290,11 @@ class _InputDataScreenState extends State<InputDataScreen> {
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
+                    controller: _volumeController,
                     readOnly: true,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Volume (cm³)',
-                      border: const OutlineInputBorder(),
-                      hintText: _volume, // Display calculated volume
+                      border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -256,7 +306,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) {
-                      // Add validator
                       if (value == null ||
                           value.isEmpty ||
                           double.tryParse(value) == null) {
@@ -275,7 +324,6 @@ class _InputDataScreenState extends State<InputDataScreen> {
                     ),
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
-                        // All fields are valid, proceed to save data
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -406,6 +454,19 @@ class _InputDataScreenState extends State<InputDataScreen> {
                 heroTag: 'backButton',
                 onPressed: () => Navigator.pop(context),
                 child: const Icon(Icons.arrow_back),
+              ),
+            ),
+          ),
+
+          // Flashlight toggle button
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: SafeArea(
+              child: FloatingActionButton(
+                heroTag: 'flashButton',
+                onPressed: _toggleFlash,
+                child: Icon(_isFlashOn ? Icons.flash_off : Icons.flash_on),
               ),
             ),
           ),

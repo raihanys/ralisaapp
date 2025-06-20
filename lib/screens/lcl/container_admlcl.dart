@@ -11,11 +11,19 @@ class ContainerScreen extends StatefulWidget {
 class _ContainerScreenState extends State<ContainerScreen> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isScanning = true;
+  bool _isFlashOn = false; // New state for flashlight
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _toggleFlash() {
+    setState(() {
+      _isFlashOn = !_isFlashOn;
+      _controller.toggleTorch();
+    });
   }
 
   void _showSuccessDialog(String barcodeValue) {
@@ -39,7 +47,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
     );
   }
 
-  // container_admlcl.dart
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,6 +146,19 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 heroTag: 'backButton',
                 onPressed: () => Navigator.pop(context),
                 child: const Icon(Icons.arrow_back),
+              ),
+            ),
+          ),
+
+          // Flashlight toggle button
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: SafeArea(
+              child: FloatingActionButton(
+                heroTag: 'flashButton',
+                onPressed: _toggleFlash,
+                child: Icon(_isFlashOn ? Icons.flash_off : Icons.flash_on),
               ),
             ),
           ),
