@@ -21,14 +21,14 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   final TextEditingController _containerController = TextEditingController();
   final TextEditingController _sealController = TextEditingController();
   final TextEditingController _seal2Controller = TextEditingController();
-  // final String _ordersUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
   final String _ordersUrl =
-      'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
-  // final String _sealUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/get_seal_number';
+      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
+  // final String _ordersUrl =
+  //     'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
   final String _sealUrl =
-      'https://api3.ralisa.co.id/index.php/api/get_seal_number';
+      'http://192.168.20.65/ralisa_api/index.php/api/get_seal_number';
+  // final String _sealUrl =
+  //     'https://api3.ralisa.co.id/index.php/api/get_seal_number';
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
   String? _namaPetugas;

@@ -20,22 +20,22 @@ class AuthService {
   }) async {
     // --- START: BLOK KODE UNTUK FORCE LOGIN ---
     // Tentukan username dan password khusus untuk force login
-    if (username == 'adminlcl' && password == '12345678') {
-      print('--- Melakukan Force Login Lokal untuk Admin LCL ---');
-      final prefs = await SharedPreferences.getInstance();
+    // if (username == 'adminlcl' && password == '12345678') {
+    //   print('--- Melakukan Force Login Lokal untuk Admin LCL ---');
+    //   final prefs = await SharedPreferences.getInstance();
 
-      // Simulasikan data login yang berhasil
-      await prefs.setBool('isLoggedIn', true); //
-      await prefs.setString('username', username); //
-      await prefs.setString('password', password); //
-      await prefs.setString('role', '4'); // Role untuk Admin LCL
-      await prefs.setString('version', '1.0'); //
-      await prefs.setString('token', 'dummy-local-token-for-admin-lcl'); //
+    //   // Simulasikan data login yang berhasil
+    //   await prefs.setBool('isLoggedIn', true); //
+    //   await prefs.setString('username', username); //
+    //   await prefs.setString('password', password); //
+    //   await prefs.setString('role', '4'); // Role untuk Admin LCL
+    //   await prefs.setString('version', '1.0'); //
+    //   await prefs.setString('token', 'dummy-local-token-for-admin-lcl'); //
 
-      print('Force Login Berhasil. Navigasi ke Halaman Admin LCL.');
-      // Kembalikan Map yang tidak null untuk menandakan login berhasil
-      return {'status': 'success', 'message': 'Local force login'};
-    }
+    //   print('Force Login Berhasil. Navigasi ke Halaman Admin LCL.');
+    //   // Kembalikan Map yang tidak null untuk menandakan login berhasil
+    //   return {'status': 'success', 'message': 'Local force login'};
+    // }
     // --- END: BLOK KODE UNTUK FORCE LOGIN ---
 
     final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';

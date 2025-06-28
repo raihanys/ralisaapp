@@ -32,18 +32,18 @@ void pelabuhanOnStart(ServiceInstance service) async {
 
 class PelabuhanService {
   final AuthService _authService;
-  // final String _ordersUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
   final String _ordersUrl =
-      'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
-  // final String _submitRcUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc';
+      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
+  // final String _ordersUrl =
+  //     'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
   final String _submitRcUrl =
-      'https://api3.ralisa.co.id/index.php/api/agent_create_rc';
-  // final String _archiveUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_archive';
+      'http://192.168.20.65/ralisa_api/index.php/api/agent_create_rc';
+  // final String _submitRcUrl =
+  //     'https://api3.ralisa.co.id/index.php/api/agent_create_rc';
   final String _archiveUrl =
-      'http://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_archive';
+      'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_archive';
+  // final String _archiveUrl =
+  //     'http://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_archive';
 
   PelabuhanService(this._authService);
 

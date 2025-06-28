@@ -52,7 +52,7 @@ class _MainPelabuhanState extends State<MainPelabuhan>
     });
     _isLoading = true;
     _fetchOrders();
-    _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    _timer = Timer.periodic(const Duration(minutes: 5), (timer) {
       _fetchOrders();
     });
   }
@@ -264,90 +264,27 @@ class _MainPelabuhanState extends State<MainPelabuhan>
         preferredSize: const Size.fromHeight(150.0),
         child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
       ),
-      body: SmartRefresher(
-        controller: _refreshController,
-        enablePullDown: true,
-        enablePullUp: false,
-        header: CustomHeader(
-          builder: (BuildContext context, RefreshStatus? mode) {
-            Widget body;
-            if (mode == RefreshStatus.idle) {
-              body = Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      // In main_pelabuhan.dart, replace the body with:
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : IndexedStack(
+                index: _currentIndex,
                 children: [
-                  Icon(
-                    Icons.arrow_downward,
-                    color: Theme.of(context).primaryColor,
+                  InboxPelabuhan(
+                    orders: inboxOrders,
+                    onOrderUpdated: _fetchOrders,
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Tarik ke bawah untuk refresh",
-                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ProcessPelabuhan(
+                    orders: processOrders,
+                    onOrderUpdated: _fetchOrders,
+                  ),
+                  ArchivePelabuhan(
+                    orders: archiveOrders,
+                    onOrderUpdated: _fetchOrders,
                   ),
                 ],
-              );
-            } else if (mode == RefreshStatus.refreshing) {
-              body = Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Memuat data order...",
-                    style: TextStyle(color: Theme.of(context).primaryColor),
-                  ),
-                ],
-              );
-            } else {
-              body = Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.arrow_upward,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Lepaskan untuk refresh",
-                    style: TextStyle(color: Theme.of(context).primaryColor),
-                  ),
-                ],
-              );
-            }
-            return Container(height: 50, child: Center(child: body));
-          },
-        ),
-        onRefresh: _fetchOrders,
-        child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    InboxPelabuhan(
-                      orders: inboxOrders,
-                      onOrderUpdated: _fetchOrders,
-                    ),
-                    ProcessPelabuhan(
-                      orders: processOrders,
-                      onOrderUpdated: _fetchOrders,
-                    ),
-                    ArchivePelabuhan(
-                      orders: archiveOrders,
-                      onOrderUpdated: _fetchOrders,
-                    ),
-                  ],
-                ),
-      ),
+              ),
       bottomNavigationBar: _buildFloatingNavBar(theme),
     );
   }
