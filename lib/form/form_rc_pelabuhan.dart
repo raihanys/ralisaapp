@@ -183,9 +183,16 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
         _databaseData = data;
       });
     } else {
-      _containerController.text = widget.order['container_num'] ?? '';
-      _sealController.text = widget.order['seal_number'] ?? '';
-      _seal2Controller.text = widget.order['seal_number2'] ?? '';
+      _containerController.text =
+          widget.order['driver_container_num'] ??
+          widget.order['container_num'] ??
+          '';
+      _sealController.text =
+          widget.order['driver_seal_num1'] ?? widget.order['seal_number'] ?? '';
+      _seal2Controller.text =
+          widget.order['driver_seal_num2'] ??
+          widget.order['seal_number2'] ??
+          '';
 
       setState(() {
         _databaseData = widget.order;
