@@ -47,8 +47,8 @@ void supirOnStart(ServiceInstance service) async {
 
 class SupirService {
   final AuthService _authService;
-  // final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
+  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
   Timer? _timer;
 
   SupirService(this._authService) {
@@ -482,8 +482,8 @@ class SupirService {
 
 class SupirBackgroundService {
   final AuthService _authService;
-  // final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
+  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
 
   String get _taskDriverUrl => '$_baseUrl/get_task_driver';
 
