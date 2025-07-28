@@ -5,8 +5,8 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 // import 'package:device_info_plus/device_info_plus.dart';
 
 class AuthService {
-  // final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
-  final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
+  final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
+  // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
 
   // Future<String> _getDeviceImei() async {
   //   final deviceInfo = DeviceInfoPlugin();
@@ -41,36 +41,49 @@ class AuthService {
     final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
     // final imei = await _getDeviceImei();
 
+    // // Try Pelabuhan login (type 3) with version 1.0
+    // final pelabuhanResult = await _attemptLogin(
+    //   username: username,
+    //   password: password,
+    //   // type: '3',
+    //   version: '1.0',
+    //   imei: imei,
+    // );
+
+    // if (pelabuhanResult != null) {
+    //   return pelabuhanResult;
+    // }
+
     // Try Driver login (type 1) with version 2.7
-    final driverResult = await _attemptLogin(
+    // final driverResult = await _attemptLogin(
+    //   username: username,
+    //   password: password,
+    //   // type: '1',
+    //   version: '2.7',
+    //   imei: imei,
+    // );
+
+    // if (driverResult != null) {
+    //   return driverResult;
+    // }
+
+    // Try Pelabuhan login (type 4) with version 1.0
+    final lclResult = await _attemptLogin(
       username: username,
       password: password,
-      type: '1',
-      version: '2.7',
-      imei: imei,
-    );
-
-    if (driverResult != null) {
-      return driverResult;
-    }
-
-    // Try Pelabuhan login (type 3) with version 1.0
-    final pelabuhanResult = await _attemptLogin(
-      username: username,
-      password: password,
-      type: '3',
+      // type: '4',
       version: '1.0',
       imei: imei,
     );
 
-    return pelabuhanResult;
+    return lclResult;
   }
 
   Future<Map<String, dynamic>?> _attemptLogin({
     required String username,
     required String password,
     required String version,
-    required String type,
+    // required String type,
     required String imei,
   }) async {
     try {
@@ -78,12 +91,13 @@ class AuthService {
         'username': username,
         'password': password,
         'version': version,
-        'type': type,
+        // 'type': type,
         'imei': imei,
         'firebase': 'dummy_token',
       };
 
-      print('Attempting login with version: $version, type: $type');
+      // print('Attempting login with version: $version, type: $type');
+      print('Attempting login with version: $version');
 
       final res = await http
           .post(
@@ -102,11 +116,11 @@ class AuthService {
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('username', username);
           await prefs.setString('password', password);
-          await prefs.setString('role', type);
+          await prefs.setString('role', user['type'] ?? '');
           await prefs.setString('version', version);
           await prefs.setString('token', user['token'] ?? '');
 
-          print('Login success with type: $type, version: $version');
+          print('Login success with type: ${user['type']}, version: $version');
           return user;
         } else {
           print('Login failed: ${data['message']}');

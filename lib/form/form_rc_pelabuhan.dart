@@ -608,9 +608,7 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   Widget _buildSuggestionDropdown({required TextEditingController controller}) {
     return Container(
       margin: EdgeInsets.only(top: 4),
-      constraints: BoxConstraints(
-        maxHeight: _maxSuggestionHeight, // Batasi tinggi maksimal
-      ),
+      constraints: BoxConstraints(maxHeight: _maxSuggestionHeight),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(4),
@@ -625,8 +623,8 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
           itemCount: _sealSuggestions.length,
           itemBuilder: (context, index) {
             return ListTile(
-              dense: true, // Buat item lebih compact
-              visualDensity: VisualDensity.compact, // Padatkan tampilan
+              dense: true,
+              visualDensity: VisualDensity.compact,
               contentPadding: EdgeInsets.symmetric(horizontal: 16),
               title: Text(
                 _sealSuggestions[index],

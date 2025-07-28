@@ -10,8 +10,7 @@ class ContainerScreen extends StatefulWidget {
 
 class _ContainerScreenState extends State<ContainerScreen> {
   final MobileScannerController _controller = MobileScannerController();
-  bool _isScanning = true;
-  bool _isFlashOn = false; // New state for flashlight
+  bool _isFlashOn = false;
 
   @override
   void dispose() {
@@ -35,10 +34,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
           content: Text('Status Updated: $barcodeValue'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() => _isScanning = true);
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text('OK'),
             ),
           ],
@@ -100,42 +96,30 @@ class _ContainerScreenState extends State<ContainerScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child:
-                    _isScanning
-                        ? MobileScanner(
-                          controller: _controller,
-                          onDetect: (capture) {
-                            final barcode = capture.barcodes.firstOrNull;
-                            if (barcode != null && barcode.rawValue != null) {
-                              setState(() => _isScanning = false);
-                              _controller.stop();
-                              _showSuccessDialog(barcode.rawValue!);
-                            }
-                          },
-                        )
-                        : Center(
-                          child: ElevatedButton(
-                            onPressed: () => setState(() => _isScanning = true),
-                            child: const Text('Scan Lagi'),
-                          ),
-                        ),
+                child: MobileScanner(
+                  controller: _controller,
+                  onDetect: (capture) {
+                    final barcode = capture.barcodes.firstOrNull;
+                    if (barcode != null && barcode.rawValue != null) {
+                      _showSuccessDialog(barcode.rawValue!);
+                    }
+                  },
+                ),
               ),
             ),
           ),
 
           // Scanner Frame Indicator
-          if (_isScanning)
-            Center(
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.7,
-                height: 100,
-                margin: const EdgeInsets.only(bottom: 80),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.red, width: 4),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.6,
+              height: MediaQuery.of(context).size.width * 0.6,
+              margin: const EdgeInsets.only(bottom: 80),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.red, width: 4),
               ),
             ),
+          ),
 
           // Tombol back
           Positioned(
