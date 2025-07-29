@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../login_screen.dart';
-import 'input_data_admlcl.dart';
 import 'warehouse_admlcl.dart';
 import 'container_admlcl.dart';
+import 'shipping_admlcl.dart';
 
 class MainLCL extends StatefulWidget {
   const MainLCL({super.key});
@@ -88,22 +88,12 @@ class HomeScreen extends StatelessWidget {
         children: [
           Expanded(
             child: GridView.count(
-              crossAxisCount: 3, // Ubah jadi 3 kolom
+              crossAxisCount: 3,
               mainAxisSpacing: 20,
               crossAxisSpacing: 20,
               padding: const EdgeInsets.all(20),
-              childAspectRatio: 0.8, // Sesuaikan aspect ratio
+              childAspectRatio: 0.8,
               children: [
-                _buildMenuCard(
-                  context,
-                  Icons.edit_document,
-                  'Input Data',
-                  Colors.blue,
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const InputDataScreen()),
-                  ),
-                ),
                 _buildMenuCard(
                   context,
                   Icons.warehouse,
@@ -122,6 +112,19 @@ class HomeScreen extends StatelessWidget {
                   () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ContainerScreen()),
+                  ),
+                ),
+                // TAMBAHKAN MENU BARU INI
+                _buildMenuCard(
+                  context,
+                  Icons.check_circle,
+                  'Ready to Ship',
+                  Colors.blue,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ReadyToShipScreen(),
+                    ),
                   ),
                 ),
               ],
@@ -146,18 +149,19 @@ class HomeScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 70, // Sedikit diperbesar
+            height: 70, // Sedikit diperbesar
             decoration: BoxDecoration(
               color: color.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: color.withOpacity(0.5), width: 1.5),
             ),
-            child: Icon(icon, size: 40, color: color),
+            child: Icon(icon, size: 35, color: color),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             title,
+            textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ],

@@ -80,8 +80,9 @@ class LCLService {
     required String length,
     required String width,
     required String nama_barang,
-    required String tipe_barang_id, // Mengirim ID tipe barang
-    String? id_barang, // Mengirim ID barang jika ada (opsional)
+    required String tipe_barang_id,
+    String? id_barang,
+    required String processType,
   }) async {
     final token = await _authService.getValidToken();
     if (token == null) {
@@ -97,10 +98,9 @@ class LCLService {
       'height': height,
       'length': length,
       'width': width,
-      'nama_barang':
-          nama_barang, // Tetap kirim nama barang (untuk input manual)
-      'tipe_barang':
-          tipe_barang_id, // Parameter API-nya 'tipe_barang', kita isi dengan ID
+      'nama_barang': nama_barang,
+      'tipe_barang': tipe_barang_id,
+      'process_type': processType,
     };
 
     // Jika id_barang ada (bukan null), tambahkan ke fields
@@ -142,6 +142,7 @@ class LCLService {
             nama_barang: nama_barang,
             tipe_barang_id: tipe_barang_id,
             id_barang: id_barang,
+            processType: processType,
           );
         }
       }
@@ -154,6 +155,31 @@ class LCLService {
       return response.statusCode == 200 && data['status'] == true;
     } catch (e) {
       print('Error saving LPB detail: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateStatusReadyToShip(String numberLpbItem) async {
+    final token = await _authService.getValidToken();
+    if (token == null) return false;
+
+    final url = Uri.parse(
+      'http://192.168.20.65/ralisa_api/index.php/api/update_status_ready_to_ship',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        body: {'token': token, 'number_lpb_item': numberLpbItem},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error updating status: $e');
       return false;
     }
   }

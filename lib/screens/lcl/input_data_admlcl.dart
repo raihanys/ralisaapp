@@ -483,6 +483,7 @@ class _InputDataScreenState extends State<InputDataScreen> {
                               _selectedTipeId!, // Kirim ID Tipe Barang
                           id_barang:
                               _selectedBarangId, // Kirim ID Barang jika ada
+                          processType: 'xor',
                         );
 
                         if (mounted) {
