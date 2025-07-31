@@ -2,9 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/lcl_service.dart';
 
-// Model disertakan langsung di sini untuk kemudahan
+// Model untuk Sugesti Barang
 class ItemSuggestion {
   final String id;
   final String name;
@@ -17,6 +18,21 @@ class ItemSuggestion {
       id: json['id_barang'] ?? '',
       name: json['nama_barang'] ?? '',
       type: json['tipe_barang'] ?? '',
+    );
+  }
+}
+
+// Model untuk Sugesti Kontainer
+class ContainerSuggestion {
+  final String id;
+  final String number;
+
+  ContainerSuggestion({required this.id, required this.number});
+
+  factory ContainerSuggestion.fromJson(Map<String, dynamic> json) {
+    return ContainerSuggestion(
+      id: json['container_id'] ?? '',
+      number: json['container_number'] ?? '',
     );
   }
 }
@@ -47,6 +63,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
   final TextEditingController _tinggiController = TextEditingController();
   final TextEditingController _volumeController = TextEditingController();
   final TextEditingController _beratController = TextEditingController();
+  final TextEditingController _containerSearchController =
+      TextEditingController();
 
   List<ItemSuggestion> _itemSuggestions = [];
   bool _isFetchingSuggestions = false;
@@ -62,16 +80,28 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
   final _formKey = GlobalKey<FormState>();
 
+  // --- STATE UNTUK KONTAINER ---
+  String? _selectedContainerId;
+  String? _selectedContainerNumber;
+  List<ContainerSuggestion> _containerSuggestions = [];
+  bool _isFetchingContainers = false;
+  Timer? _containerDebounce;
+
   @override
   void initState() {
     super.initState();
     _loadTipeBarang();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showContainerSelectionModal();
+    });
   }
 
   @override
   void dispose() {
+    _clearContainerSelection();
     _controller.dispose();
     _debounce?.cancel();
+    _containerDebounce?.cancel();
     _noLpbController.dispose();
     _kodebarangController.dispose();
     _urutanbarangController.dispose();
@@ -82,10 +112,141 @@ class _ContainerScreenState extends State<ContainerScreen> {
     _tinggiController.dispose();
     _volumeController.dispose();
     _beratController.dispose();
+    _containerSearchController.dispose();
     super.dispose();
   }
 
-  // --- SEMUA FUNGSI HELPER DARI INPUT_DATA_ADMLCL.DART DICOPY KE SINI ---
+  void _showInfoPopup(
+    BuildContext context,
+    String title,
+    String message, {
+    VoidCallback? onOkPressed,
+  }) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: onOkPressed ?? () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // --- FUNGSI-FUNGSI BARU UNTUK SELEKSI KONTAINER ---
+
+  Future<void> _clearContainerSelection() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('container_id');
+    await prefs.remove('container_number');
+  }
+
+  Future<void> _fetchContainerSuggestions(String query) async {
+    if (_containerDebounce?.isActive ?? false) _containerDebounce?.cancel();
+
+    _containerDebounce = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) return;
+      setState(() => _isFetchingContainers = true);
+
+      try {
+        final suggestionsData = await _lclService.getContainerNumberLCL(query);
+        if (mounted && suggestionsData != null) {
+          setState(() {
+            _containerSuggestions =
+                suggestionsData
+                    .map((item) => ContainerSuggestion.fromJson(item))
+                    .toList();
+          });
+        }
+      } finally {
+        if (mounted) setState(() => _isFetchingContainers = false);
+      }
+    });
+  }
+
+  void _showContainerSelectionModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Pilih Nomor Kontainer'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _containerSearchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Ketik nomor kontainer',
+                      suffixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        _fetchContainerSuggestions(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _isFetchingContainers
+                      ? const CircularProgressIndicator()
+                      : SizedBox(
+                        height: 200,
+                        width: double.maxFinite,
+                        child: ListView.builder(
+                          itemCount: _containerSuggestions.length,
+                          itemBuilder: (context, index) {
+                            final suggestion = _containerSuggestions[index];
+                            return ListTile(
+                              title: Text(suggestion.number),
+                              onTap: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.setString(
+                                  'container_id',
+                                  suggestion.id,
+                                );
+                                await prefs.setString(
+                                  'container_number',
+                                  suggestion.number,
+                                );
+
+                                setState(() {
+                                  _selectedContainerId = suggestion.id;
+                                  _selectedContainerNumber = suggestion.number;
+                                });
+
+                                Navigator.of(dialogContext).pop();
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Keluar dari halaman utama
+                  },
+                  child: const Text('Batal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- FUNGSI HELPER LAINNYA ---
 
   void _hitungVolume() {
     final double? panjang = double.tryParse(_panjangController.text);
@@ -178,12 +339,21 @@ class _ContainerScreenState extends State<ContainerScreen> {
       final lpbData = await _lclService.getLPBInfoDetail(scannedBarcode);
       setState(() => _isLoading = false);
 
-      if (lpbData == null || lpbData['data'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data LPB tidak ditemukan')),
+      // Tampilkan popup jika status dari backend adalah false
+      if (lpbData == null || lpbData['status'] == false) {
+        final message =
+            lpbData?['message'] ??
+            'Data LPB tidak ditemukan atau terjadi kesalahan.';
+        _showInfoPopup(
+          context,
+          'Informasi',
+          message,
+          onOkPressed: () {
+            Navigator.of(context).pop();
+            _controller.start();
+            _scannedBarcode = null;
+          },
         );
-        _controller.start();
-        _scannedBarcode = null;
         return;
       }
 
@@ -226,11 +396,16 @@ class _ContainerScreenState extends State<ContainerScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
+      _showInfoPopup(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      _controller.start();
-      _scannedBarcode = null;
+        'Error',
+        'Terjadi kesalahan: ${e.toString()}',
+        onOkPressed: () {
+          Navigator.of(context).pop();
+          _controller.start();
+          _scannedBarcode = null;
+        },
+      );
     }
   }
 
@@ -269,6 +444,14 @@ class _ContainerScreenState extends State<ContainerScreen> {
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Kontainer: ${_selectedContainerNumber ?? 'Tidak ada'}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 _buildReadOnlyField('No. LPB', _noLpbController),
@@ -453,70 +636,51 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isLoading = true);
-                      try {
-                        final success = await _lclService.saveLPBDetail(
-                          number_lpb_item: _kodebarangController.text,
-                          weight: _beratController.text,
-                          height: _tinggiController.text,
-                          length: _panjangController.text,
-                          width: _lebarController.text,
-                          nama_barang: _namaController.text,
-                          tipe_barang_id: _selectedTipeId!,
-                          id_barang: _selectedBarangId,
-                          processType: 'container',
+
+                      final prefs = await SharedPreferences.getInstance();
+                      final containerId = prefs.getString('container_id');
+
+                      if (containerId == null) {
+                        _showInfoPopup(
+                          context,
+                          'Gagal',
+                          'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
                         );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
 
-                        if (mounted) {
-                          Navigator.of(context).pop();
+                      // --- PERUBAHAN PADA SAAT SUBMIT DATA ---
+                      final result = await _lclService.saveLPBDetail(
+                        number_lpb_item: _kodebarangController.text,
+                        weight: _beratController.text,
+                        height: _tinggiController.text,
+                        length: _panjangController.text,
+                        width: _lebarController.text,
+                        nama_barang: _namaController.text,
+                        tipe_barang_id: _selectedTipeId!,
+                        id_barang: _selectedBarangId,
+                        processType: 'container',
+                        container_number: containerId,
+                      );
 
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: Text(success ? 'Berhasil' : 'Gagal'),
-                                  content: Text(
-                                    success
-                                        ? 'Data berhasil disimpan ke Container'
-                                        : 'Gagal menyimpan data',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () =>
-                                              Navigator.of(
-                                                context,
-                                              ).pop(), // tutup popup
-                                      child: Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: Text('Error'),
-                                  content: Text(
-                                    'Terjadi kesalahan: ${e.toString()}',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () =>
-                                              Navigator.of(
-                                                context,
-                                              ).pop(), // tutup popup
-                                      child: Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) setState(() => _isLoading = false);
+                      setState(() => _isLoading = false);
+
+                      final bool success = result['success'];
+                      final String message = result['message'];
+
+                      if (mounted) {
+                        // Tutup modal input terlebih dahulu
+                        Navigator.of(context).pop();
+
+                        _showInfoPopup(
+                          context,
+                          success ? 'Berhasil' : 'Gagal',
+                          message,
+                          onOkPressed: () {
+                            Navigator.of(context).pop(); // Tutup popup
+                          },
+                        );
                       }
                     }
                   },
@@ -528,7 +692,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text('Simpan Data'),
                 ),
-
                 const SizedBox(height: 10),
               ],
             ),
@@ -637,9 +800,24 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   'Aplikasi LCL',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                const Text(
-                  'Container', // Judul diubah
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Container',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'No. Kontainer: ${_selectedContainerNumber ?? '...'}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.blueGrey,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -662,7 +840,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 child: MobileScanner(
                   controller: _controller,
                   onDetect: (capture) async {
-                    if (_scannedBarcode != null) return;
+                    if (_scannedBarcode != null || _selectedContainerId == null)
+                      return;
                     final barcode = capture.barcodes.first.rawValue;
                     if (barcode != null) {
                       setState(() => _scannedBarcode = barcode);

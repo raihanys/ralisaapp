@@ -85,6 +85,28 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     super.dispose();
   }
 
+  void _showInfoPopup(
+    BuildContext context,
+    String title,
+    String message, {
+    VoidCallback? onOkPressed,
+  }) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: onOkPressed ?? () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
   // --- SEMUA FUNGSI HELPER DARI INPUT_DATA_ADMLCL.DART DICOPY KE SINI ---
 
   void _hitungVolume() {
@@ -178,12 +200,21 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       final lpbData = await _lclService.getLPBInfoDetail(scannedBarcode);
       setState(() => _isLoading = false);
 
-      if (lpbData == null || lpbData['data'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data LPB tidak ditemukan')),
+      // Tampilkan popup jika status dari backend adalah false
+      if (lpbData == null || lpbData['status'] == false) {
+        final message =
+            lpbData?['message'] ??
+            'Data LPB tidak ditemukan atau terjadi kesalahan.';
+        _showInfoPopup(
+          context,
+          'Informasi',
+          message,
+          onOkPressed: () {
+            Navigator.of(context).pop();
+            _controller.start();
+            _scannedBarcode = null;
+          },
         );
-        _controller.start();
-        _scannedBarcode = null;
         return;
       }
 
@@ -226,11 +257,16 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
+      _showInfoPopup(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      _controller.start();
-      _scannedBarcode = null;
+        'Error',
+        'Terjadi kesalahan: ${e.toString()}',
+        onOkPressed: () {
+          Navigator.of(context).pop();
+          _controller.start();
+          _scannedBarcode = null;
+        },
+      );
     }
   }
 
@@ -453,70 +489,37 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       setState(() => _isLoading = true);
-                      try {
-                        final success = await _lclService.saveLPBDetail(
-                          number_lpb_item: _kodebarangController.text,
-                          weight: _beratController.text,
-                          height: _tinggiController.text,
-                          length: _panjangController.text,
-                          width: _lebarController.text,
-                          nama_barang: _namaController.text,
-                          tipe_barang_id: _selectedTipeId!,
-                          id_barang: _selectedBarangId,
-                          processType: 'warehouse',
+
+                      final result = await _lclService.saveLPBDetail(
+                        number_lpb_item: _kodebarangController.text,
+                        weight: _beratController.text,
+                        height: _tinggiController.text,
+                        length: _panjangController.text,
+                        width: _lebarController.text,
+                        nama_barang: _namaController.text,
+                        tipe_barang_id: _selectedTipeId!,
+                        id_barang: _selectedBarangId,
+                        processType:
+                            'warehouse', // Process type adalah warehouse
+                      );
+
+                      setState(() => _isLoading = false);
+
+                      final bool success = result['success'];
+                      final String message = result['message'];
+
+                      if (mounted) {
+                        // Tutup modal input terlebih dahulu
+                        Navigator.of(context).pop();
+
+                        _showInfoPopup(
+                          context,
+                          success ? 'Berhasil' : 'Gagal',
+                          message,
+                          onOkPressed: () {
+                            Navigator.of(context).pop(); // Tutup popup
+                          },
                         );
-
-                        if (mounted) {
-                          Navigator.of(context).pop();
-
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: Text(success ? 'Berhasil' : 'Gagal'),
-                                  content: Text(
-                                    success
-                                        ? 'Data berhasil disimpan ke Warehouse'
-                                        : 'Gagal menyimpan data',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () =>
-                                              Navigator.of(
-                                                context,
-                                              ).pop(), // tutup popup
-                                      child: Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: Text('Error'),
-                                  content: Text(
-                                    'Terjadi kesalahan: ${e.toString()}',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () =>
-                                              Navigator.of(
-                                                context,
-                                              ).pop(), // tutup popup
-                                      child: Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) setState(() => _isLoading = false);
                       }
                     }
                   },

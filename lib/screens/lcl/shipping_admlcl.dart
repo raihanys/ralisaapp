@@ -1,7 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/lcl_service.dart';
+
+// Model untuk Sugesti Kontainer (bisa ditaruh di file terpisah jika digunakan di banyak tempat)
+class ContainerSuggestion {
+  final String id;
+  final String number;
+
+  ContainerSuggestion({required this.id, required this.number});
+
+  factory ContainerSuggestion.fromJson(Map<String, dynamic> json) {
+    return ContainerSuggestion(
+      id: json['container_id'] ?? '',
+      number: json['container_number'] ?? '',
+    );
+  }
+}
 
 class ReadyToShipScreen extends StatefulWidget {
   const ReadyToShipScreen({super.key});
@@ -18,6 +34,162 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
 
   final LCLService _lclService = LCLService();
   String? _codeBarang;
+
+  // --- STATE DAN CONTROLLER UNTUK KONTAINER ---
+  final TextEditingController _containerSearchController =
+      TextEditingController();
+  String? _selectedContainerId;
+  String? _selectedContainerNumber;
+  List<ContainerSuggestion> _containerSuggestions = [];
+  bool _isFetchingContainers = false;
+  Timer? _containerDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showContainerSelectionModal();
+    });
+  }
+
+  @override
+  void dispose() {
+    _clearContainerSelection();
+    _controller.dispose();
+    _containerSearchController.dispose();
+    _containerDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _showInfoPopup(
+    BuildContext context,
+    String title,
+    String message, {
+    VoidCallback? onOkPressed,
+  }) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: onOkPressed ?? () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // --- FUNGSI-FUNGSI BARU UNTUK SELEKSI KONTAINER ---
+
+  Future<void> _clearContainerSelection() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('container_id');
+    await prefs.remove('container_number');
+  }
+
+  Future<void> _fetchContainerSuggestions(String query) async {
+    if (_containerDebounce?.isActive ?? false) _containerDebounce?.cancel();
+
+    _containerDebounce = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) return;
+      setState(() => _isFetchingContainers = true);
+
+      try {
+        final suggestionsData = await _lclService.getContainerNumberLCL(query);
+        if (mounted && suggestionsData != null) {
+          setState(() {
+            _containerSuggestions =
+                suggestionsData
+                    .map((item) => ContainerSuggestion.fromJson(item))
+                    .toList();
+          });
+        }
+      } finally {
+        if (mounted) setState(() => _isFetchingContainers = false);
+      }
+    });
+  }
+
+  void _showContainerSelectionModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Pilih Nomor Kontainer'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _containerSearchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Ketik nomor kontainer',
+                      suffixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        _fetchContainerSuggestions(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _isFetchingContainers
+                      ? const CircularProgressIndicator()
+                      : SizedBox(
+                        height: 200,
+                        width: double.maxFinite,
+                        child: ListView.builder(
+                          itemCount: _containerSuggestions.length,
+                          itemBuilder: (context, index) {
+                            final suggestion = _containerSuggestions[index];
+                            return ListTile(
+                              title: Text(suggestion.number),
+                              onTap: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.setString(
+                                  'container_id',
+                                  suggestion.id,
+                                );
+                                await prefs.setString(
+                                  'container_number',
+                                  suggestion.number,
+                                );
+
+                                setState(() {
+                                  _selectedContainerId = suggestion.id;
+                                  _selectedContainerNumber = suggestion.number;
+                                });
+
+                                Navigator.of(dialogContext).pop();
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Keluar dari halaman utama
+                  },
+                  child: const Text('Batal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _toggleFlash() {
     setState(() {
@@ -44,12 +216,21 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       final lpbData = await _lclService.getLPBInfoDetail(scannedBarcode);
       setState(() => _isLoading = false);
 
-      if (lpbData == null || lpbData['data'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data barang tidak ditemukan')),
+      // Tampilkan popup jika status dari backend adalah false
+      if (lpbData == null || lpbData['status'] == false) {
+        final message =
+            lpbData?['message'] ??
+            'Data barang tidak ditemukan atau terjadi kesalahan.';
+        _showInfoPopup(
+          context,
+          'Informasi',
+          message,
+          onOkPressed: () {
+            Navigator.of(context).pop();
+            _controller.start();
+            _scannedBarcode = null;
+          },
         );
-        _controller.start();
-        _scannedBarcode = null;
         return;
       }
 
@@ -67,11 +248,16 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
+      _showInfoPopup(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      _controller.start();
-      _scannedBarcode = null;
+        'Error',
+        'Terjadi kesalahan: ${e.toString()}',
+        onOkPressed: () {
+          Navigator.of(context).pop();
+          _controller.start();
+          _scannedBarcode = null;
+        },
+      );
     }
   }
 
@@ -82,6 +268,8 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Kontainer: ${_selectedContainerNumber ?? '...'}'),
+          const SizedBox(height: 10),
           Text('Kode Barang: $_codeBarang'),
           const SizedBox(height: 20),
           const Text('Ubah status menjadi Ready to Ship?'),
@@ -94,56 +282,44 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
         ),
         TextButton(
           onPressed: () async {
+            // Tutup dialog konfirmasi
             Navigator.pop(context);
             setState(() => _isLoading = true);
 
-            try {
-              final success = await _lclService.updateStatusReadyToShip(
-                _scannedBarcode!,
-              );
+            final prefs = await SharedPreferences.getInstance();
+            final containerId = prefs.getString('container_id');
 
-              if (mounted) {
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: Text(success ? 'Berhasil' : 'Gagal'),
-                        content: Text(
-                          success
-                              ? 'Status berhasil diubah ke Ready to Ship'
-                              : 'Gagal mengubah status',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              _controller.start();
-                            },
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: const Text('Error'),
-                        content: Text('Terjadi kesalahan: ${e.toString()}'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                );
-              }
-            } finally {
-              if (mounted) setState(() => _isLoading = false);
+            if (containerId == null) {
+              _showInfoPopup(
+                context,
+                'Gagal',
+                'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
+              );
+              setState(() => _isLoading = false);
+              return;
+            }
+
+            // --- PERUBAHAN PADA SAAT SUBMIT DATA ---
+            final result = await _lclService.updateStatusReadyToShip(
+              numberLpbItem: _scannedBarcode!,
+              containerNumber: containerId,
+            );
+
+            setState(() => _isLoading = false);
+
+            final bool success = result['success'];
+            final String message = result['message'];
+
+            if (mounted) {
+              _showInfoPopup(
+                context,
+                success ? 'Berhasil' : 'Gagal',
+                message,
+                onOkPressed: () {
+                  Navigator.of(context).pop(); // Tutup popup
+                  _controller.start();
+                },
+              );
             }
           },
           child: const Text('Iya'),
@@ -182,9 +358,24 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                   'Aplikasi LCL',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                const Text(
-                  'Ready to Ship',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ready to Ship',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'No. Kontainer: ${_selectedContainerNumber ?? '...'}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.blueGrey,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -207,7 +398,8 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                 child: MobileScanner(
                   controller: _controller,
                   onDetect: (capture) async {
-                    if (_scannedBarcode != null) return;
+                    if (_scannedBarcode != null || _selectedContainerId == null)
+                      return;
                     final barcode = capture.barcodes.first.rawValue;
                     if (barcode != null) {
                       setState(() => _scannedBarcode = barcode);
