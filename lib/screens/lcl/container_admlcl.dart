@@ -86,6 +86,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
   List<ContainerSuggestion> _containerSuggestions = [];
   bool _isFetchingContainers = false;
   Timer? _containerDebounce;
+  // --- NEW ---: State to check if a container has been selected.
+  bool _isContainerSelected = false;
 
   @override
   void initState() {
@@ -114,28 +116,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
     _beratController.dispose();
     _containerSearchController.dispose();
     super.dispose();
-  }
-
-  void _showInfoPopup(
-    BuildContext context,
-    String title,
-    String message, {
-    VoidCallback? onOkPressed,
-  }) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: onOkPressed ?? () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-    );
   }
 
   // --- FUNGSI-FUNGSI BARU UNTUK SELEKSI KONTAINER ---
@@ -221,6 +201,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                 setState(() {
                                   _selectedContainerId = suggestion.id;
                                   _selectedContainerNumber = suggestion.number;
+                                  // --- UPDATED ---: Set container selected to true to activate the scanner.
+                                  _isContainerSelected = true;
                                 });
 
                                 Navigator.of(dialogContext).pop();
@@ -231,14 +213,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
                       ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(); // Keluar dari halaman utama
-                  },
-                  child: const Text('Batal'),
-                ),
-              ],
             );
           },
         );
@@ -339,21 +313,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
       final lpbData = await _lclService.getLPBInfoDetail(scannedBarcode);
       setState(() => _isLoading = false);
 
-      // Tampilkan popup jika status dari backend adalah false
-      if (lpbData == null || lpbData['status'] == false) {
-        final message =
-            lpbData?['message'] ??
-            'Data LPB tidak ditemukan atau terjadi kesalahan.';
-        _showInfoPopup(
-          context,
-          'Informasi',
-          message,
-          onOkPressed: () {
-            Navigator.of(context).pop();
-            _controller.start();
-            _scannedBarcode = null;
-          },
+      if (lpbData == null || lpbData['data'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data LPB tidak ditemukan')),
         );
+        _controller.start();
+        _scannedBarcode = null;
         return;
       }
 
@@ -396,16 +361,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      _showInfoPopup(
+      ScaffoldMessenger.of(
         context,
-        'Error',
-        'Terjadi kesalahan: ${e.toString()}',
-        onOkPressed: () {
-          Navigator.of(context).pop();
-          _controller.start();
-          _scannedBarcode = null;
-        },
-      );
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      _controller.start();
+      _scannedBarcode = null;
     }
   }
 
@@ -610,15 +570,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
-                  controller: _volumeController,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Volume (m³)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
                   controller: _beratController,
                   decoration: const InputDecoration(
                     labelText: 'Berat (kg)',
@@ -631,6 +582,15 @@ class _ContainerScreenState extends State<ContainerScreen> {
                               ? 'Angka valid'
                               : null,
                 ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _volumeController,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Volume (m³)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () async {
@@ -641,46 +601,76 @@ class _ContainerScreenState extends State<ContainerScreen> {
                       final containerId = prefs.getString('container_id');
 
                       if (containerId == null) {
-                        _showInfoPopup(
-                          context,
-                          'Gagal',
-                          'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
+                            ),
+                          ),
                         );
                         setState(() => _isLoading = false);
                         return;
                       }
 
-                      // --- PERUBAHAN PADA SAAT SUBMIT DATA ---
-                      final result = await _lclService.saveLPBDetail(
-                        number_lpb_item: _kodebarangController.text,
-                        weight: _beratController.text,
-                        height: _tinggiController.text,
-                        length: _panjangController.text,
-                        width: _lebarController.text,
-                        nama_barang: _namaController.text,
-                        tipe_barang_id: _selectedTipeId!,
-                        id_barang: _selectedBarangId,
-                        processType: 'container',
-                        container_number: containerId,
-                      );
-
-                      setState(() => _isLoading = false);
-
-                      final bool success = result['success'];
-                      final String message = result['message'];
-
-                      if (mounted) {
-                        // Tutup modal input terlebih dahulu
-                        Navigator.of(context).pop();
-
-                        _showInfoPopup(
-                          context,
-                          success ? 'Berhasil' : 'Gagal',
-                          message,
-                          onOkPressed: () {
-                            Navigator.of(context).pop(); // Tutup popup
-                          },
+                      try {
+                        final success = await _lclService.saveLPBDetail(
+                          number_lpb_item: _kodebarangController.text,
+                          weight: _beratController.text,
+                          height: _tinggiController.text,
+                          length: _panjangController.text,
+                          width: _lebarController.text,
+                          nama_barang: _namaController.text,
+                          tipe_barang_id: _selectedTipeId!,
+                          id_barang: _selectedBarangId,
+                          processType: 'container',
+                          container_number: containerId, // KIRIM ID KONTAINER
                         );
+
+                        if (mounted) {
+                          Navigator.of(context).pop();
+
+                          showDialog(
+                            context: context,
+                            builder:
+                                (context) => AlertDialog(
+                                  title: Text(success ? 'Berhasil' : 'Gagal'),
+                                  content: Text(
+                                    success
+                                        ? 'Data berhasil disimpan ke Container'
+                                        : 'Gagal menyimpan data',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.of(context).pop(),
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          showDialog(
+                            context: context,
+                            builder:
+                                (context) => AlertDialog(
+                                  title: Text('Error'),
+                                  content: Text(
+                                    'Terjadi kesalahan: ${e.toString()}',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.of(context).pop(),
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isLoading = false);
                       }
                     }
                   },
@@ -692,6 +682,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text('Simpan Data'),
                 ),
+
                 const SizedBox(height: 10),
               ],
             ),
@@ -837,32 +828,51 @@ class _ContainerScreenState extends State<ContainerScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: MobileScanner(
-                  controller: _controller,
-                  onDetect: (capture) async {
-                    if (_scannedBarcode != null || _selectedContainerId == null)
-                      return;
-                    final barcode = capture.barcodes.first.rawValue;
-                    if (barcode != null) {
-                      setState(() => _scannedBarcode = barcode);
-                      _controller.stop();
-                      await _showInputModal(context, barcode);
-                    }
-                  },
+                // --- UPDATED ---: Conditionally show the scanner or a placeholder text.
+                child:
+                    _isContainerSelected
+                        ? MobileScanner(
+                          controller: _controller,
+                          onDetect: (capture) async {
+                            if (_scannedBarcode != null ||
+                                _selectedContainerId == null)
+                              return;
+                            final barcode = capture.barcodes.first.rawValue;
+                            if (barcode != null) {
+                              setState(() => _scannedBarcode = barcode);
+                              _controller.stop();
+                              await _showInputModal(context, barcode);
+                            }
+                          },
+                        )
+                        : const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24.0),
+                            child: Text(
+                              'Pilih nomor kontainer untuk mengaktifkan pemindai.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+              ),
+            ),
+          ),
+          // --- UPDATED ---: Only show the red border if the scanner is active.
+          if (_isContainerSelected)
+            Center(
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.6,
+                height: MediaQuery.of(context).size.width * 0.6,
+                margin: const EdgeInsets.only(bottom: 80),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.red, width: 4),
                 ),
               ),
             ),
-          ),
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.6,
-              height: MediaQuery.of(context).size.width * 0.6,
-              margin: const EdgeInsets.only(bottom: 80),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.red, width: 4),
-              ),
-            ),
-          ),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
           Positioned(
             left: 16,

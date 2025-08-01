@@ -32,9 +32,7 @@ class LCLService {
 
   Future<Map<String, dynamic>?> getLPBInfoDetail(String numberLpbChild) async {
     final token = await _authService.getValidToken();
-    if (token == null) {
-      return {'status': false, 'message': 'Token tidak valid.'};
-    }
+    if (token == null) return null;
 
     final url = Uri.parse(
       'http://192.168.20.65/ralisa_api/index.php/api/getLPBInfoDetail?token=$token&number_lpb_child=$numberLpbChild',
@@ -42,10 +40,13 @@ class LCLService {
 
     try {
       final response = await http.get(url);
-      // Selalu kembalikan body JSON agar UI bisa membacanya
-      return jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return null;
+      }
     } catch (e) {
-      return {'status': false, 'message': 'Terjadi kesalahan: $e'};
+      return null;
     }
   }
 
@@ -96,7 +97,7 @@ class LCLService {
     }
   }
 
-  Future<Map<String, dynamic>> saveLPBDetail({
+  Future<bool> saveLPBDetail({
     required String number_lpb_item,
     required String weight,
     required String height,
@@ -106,11 +107,12 @@ class LCLService {
     required String tipe_barang_id,
     String? id_barang,
     required String processType,
-    String? container_number,
+    String? container_number, // TAMBAHKAN INI
   }) async {
     final token = await _authService.getValidToken();
     if (token == null) {
-      return {'success': false, 'message': 'Token tidak valid.'};
+      print('Token is null!');
+      return false;
     }
 
     final fields = {
@@ -128,6 +130,7 @@ class LCLService {
     if (id_barang != null) {
       fields['id_barang'] = id_barang;
     }
+    // TAMBAHKAN INI
     if (container_number != null) {
       fields['container_number'] = container_number;
     }
@@ -139,17 +142,17 @@ class LCLService {
       ),
     )..fields.addAll(fields);
 
+    print('Sending request with fields: $fields');
+
     try {
       final response = await request.send();
       final resBody = await response.stream.bytesToString();
       final data = jsonDecode(resBody);
 
-      // Cek jika token expired dan coba refresh
       if (response.statusCode == 401 ||
           (data['error'] == true && data['message'] == 'Token Not Found')) {
         final newToken = await _authService.softLoginRefresh();
         if (newToken != null) {
-          // Coba lagi setelah refresh token
           return saveLPBDetail(
             number_lpb_item: number_lpb_item,
             weight: weight,
@@ -160,32 +163,35 @@ class LCLService {
             tipe_barang_id: tipe_barang_id,
             id_barang: id_barang,
             processType: processType,
-            container_number: container_number,
+            container_number: container_number, // TAMBAHKAN INI
           );
         }
       }
 
-      return {
-        'success': data['status'] ?? false,
-        'message': data['message'] ?? 'Tidak ada pesan dari server.',
-      };
+      return response.statusCode == 200 && data['status'] == true;
     } catch (e) {
-      return {'success': false, 'message': 'Gagal menyimpan LPB Detail: $e'};
+      print('Error saving LPB detail: $e');
+      return false;
     }
   }
 
-  Future<Map<String, dynamic>> updateStatusReadyToShip({
+  Future<bool> updateStatusReadyToShip({
     required String numberLpbItem,
     required String containerNumber,
   }) async {
     final token = await _authService.getValidToken();
     if (token == null) {
-      return {'status': false, 'message': 'Token tidak valid.'};
+      print('updateStatusReadyToShip: Token is null!'); // Debugging line
+      return false;
     }
 
     final url = Uri.parse(
       'http://192.168.20.65/ralisa_api/index.php/api/update_status_ready_to_ship',
     );
+
+    print('updateStatusReadyToShip parameters:'); // Debugging line
+    print('  numberLpbItem: $numberLpbItem'); // Debugging line
+    print('  containerNumber: $containerNumber'); // Debugging line
 
     try {
       final response = await http.post(
@@ -197,13 +203,19 @@ class LCLService {
         },
       );
 
-      final data = jsonDecode(response.body);
-      return {
-        'success': data['status'] ?? false,
-        'message': data['message'] ?? 'Tidak ada pesan dari server.',
-      };
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('updateStatusReadyToShip API response: $data'); // Debugging line
+        return data['status'] == true;
+      }
+      print(
+        'updateStatusReadyToShip: Server responded with status code ${response.statusCode}',
+      ); // Debugging line
+      print('Response body: ${response.body}'); // Debugging line
+      return false;
     } catch (e) {
-      return {'success': false, 'message': 'Gagal update status: $e'};
+      print('Error updating status: $e');
+      return false;
     }
   }
 }
