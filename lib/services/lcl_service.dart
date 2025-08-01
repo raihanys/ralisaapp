@@ -5,14 +5,22 @@ import 'auth_service.dart';
 class LCLService {
   final AuthService _authService = AuthService();
 
+  // --- BASE URL ---
+  // Gunakan salah satu, sesuaikan untuk production atau development.
+  // PRODUCTION
+  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
+  // DEVELOPMENT
+  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+
   Future<List<Map<String, dynamic>>?> getContainerNumberLCL(
     String query,
   ) async {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
+    // Menggunakan _baseUrl untuk membangun URL
     final url = Uri.parse(
-      'http://192.168.20.65/ralisa_api/index.php/api/getContainerNumberLCL?token=$token&container_number=$query',
+      '$_baseUrl/getContainerNumberLCL?token=$token&container_number=$query',
     );
 
     try {
@@ -34,8 +42,9 @@ class LCLService {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
+    // Menggunakan _baseUrl untuk membangun URL
     final url = Uri.parse(
-      'http://192.168.20.65/ralisa_api/index.php/api/getLPBInfoDetail?token=$token&number_lpb_child=$numberLpbChild',
+      '$_baseUrl/getLPBInfoDetail?token=$token&number_lpb_child=$numberLpbChild',
     );
 
     try {
@@ -54,9 +63,8 @@ class LCLService {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
-    final url = Uri.parse(
-      'http://192.168.20.65/ralisa_api/index.php/api/getItemDetail?token=$token&name=$query',
-    );
+    // Menggunakan _baseUrl untuk membangun URL
+    final url = Uri.parse('$_baseUrl/getItemDetail?token=$token&name=$query');
 
     try {
       final response = await http.get(url);
@@ -77,9 +85,8 @@ class LCLService {
     final token = await _authService.getValidToken();
     if (token == null) return [];
 
-    final url = Uri.parse(
-      'http://192.168.20.65/ralisa_api/index.php/api/getDetailTipeBarang?token=$token',
-    );
+    // Menggunakan _baseUrl untuk membangun URL
+    final url = Uri.parse('$_baseUrl/getDetailTipeBarang?token=$token');
 
     try {
       final response = await http.get(url);
@@ -107,7 +114,7 @@ class LCLService {
     required String tipe_barang_id,
     String? id_barang,
     required String processType,
-    String? container_number, // TAMBAHKAN INI
+    String? container_number,
   }) async {
     final token = await _authService.getValidToken();
     if (token == null) {
@@ -130,16 +137,14 @@ class LCLService {
     if (id_barang != null) {
       fields['id_barang'] = id_barang;
     }
-    // TAMBAHKAN INI
     if (container_number != null) {
       fields['container_number'] = container_number;
     }
 
+    // Menggunakan _baseUrl untuk membangun URL
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse(
-        'http://192.168.20.65/ralisa_api/index.php/api/store_lpb_detail',
-      ),
+      Uri.parse('$_baseUrl/store_lpb_detail'),
     )..fields.addAll(fields);
 
     print('Sending request with fields: $fields');
@@ -163,7 +168,7 @@ class LCLService {
             tipe_barang_id: tipe_barang_id,
             id_barang: id_barang,
             processType: processType,
-            container_number: container_number, // TAMBAHKAN INI
+            container_number: container_number,
           );
         }
       }
@@ -181,17 +186,16 @@ class LCLService {
   }) async {
     final token = await _authService.getValidToken();
     if (token == null) {
-      print('updateStatusReadyToShip: Token is null!'); // Debugging line
+      print('updateStatusReadyToShip: Token is null!');
       return false;
     }
 
-    final url = Uri.parse(
-      'http://192.168.20.65/ralisa_api/index.php/api/update_status_ready_to_ship',
-    );
+    // Menggunakan _baseUrl untuk membangun URL
+    final url = Uri.parse('$_baseUrl/update_status_ready_to_ship');
 
-    print('updateStatusReadyToShip parameters:'); // Debugging line
-    print('  numberLpbItem: $numberLpbItem'); // Debugging line
-    print('  containerNumber: $containerNumber'); // Debugging line
+    print('updateStatusReadyToShip parameters:');
+    print('  numberLpbItem: $numberLpbItem');
+    print('  containerNumber: $containerNumber');
 
     try {
       final response = await http.post(
@@ -205,13 +209,13 @@ class LCLService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('updateStatusReadyToShip API response: $data'); // Debugging line
+        print('updateStatusReadyToShip API response: $data');
         return data['status'] == true;
       }
       print(
         'updateStatusReadyToShip: Server responded with status code ${response.statusCode}',
-      ); // Debugging line
-      print('Response body: ${response.body}'); // Debugging line
+      );
+      print('Response body: ${response.body}');
       return false;
     } catch (e) {
       print('Error updating status: $e');

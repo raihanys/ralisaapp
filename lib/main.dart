@@ -5,6 +5,7 @@ import 'screens/pelabuhan/main_pelabuhan.dart';
 import 'screens/supir/main_supir.dart';
 import './services/auth_service.dart';
 import 'screens/lcl/main_admlcl.dart';
+import 'screens/warehouse/main_warehouse.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +30,8 @@ class MyApp extends StatelessWidget {
             return const MainPelabuhan();
           case '4': // Admin LCL
             return const MainLCL();
+          case '5': // Kepala Gudang
+            return const MainWarehouse();
         }
       }
     }

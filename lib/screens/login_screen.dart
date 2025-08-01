@@ -3,6 +3,7 @@ import '../services/auth_service.dart';
 import 'pelabuhan/main_pelabuhan.dart';
 import 'supir/main_supir.dart';
 import 'lcl/main_admlcl.dart';
+import 'warehouse/main_warehouse.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -76,8 +77,11 @@ class _LoginScreenState extends State<LoginScreen> {
       case '3': // Pelabuhan
         target = const MainPelabuhan();
         break;
-      case '4': //Admin LCL
+      case '4': // Admin LCL
         target = const MainLCL();
+        break;
+      case '5': // Kepala Gudang
+        target = const MainWarehouse();
         break;
       default:
         setState(() => _errorMessage = 'Role tidak valid: $role');

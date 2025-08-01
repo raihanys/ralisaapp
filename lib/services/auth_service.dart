@@ -18,22 +18,22 @@ class AuthService {
     required String username,
     required String password,
   }) async {
+    // In the login method, uncomment and modify the force login block if needed:
     // --- START: BLOK KODE UNTUK FORCE LOGIN ---
     // Tentukan username dan password khusus untuk force login
-    // if (username == 'adminlcl' && password == '12345678') {
-    //   print('--- Melakukan Force Login Lokal untuk Admin LCL ---');
+    // if (username == 'kepalagudang' && password == '12345678') {
+    //   print('--- Melakukan Force Login Lokal untuk Kepala Gudang ---');
     //   final prefs = await SharedPreferences.getInstance();
 
     //   // Simulasikan data login yang berhasil
-    //   await prefs.setBool('isLoggedIn', true); //
-    //   await prefs.setString('username', username); //
-    //   await prefs.setString('password', password); //
-    //   await prefs.setString('role', '4'); // Role untuk Admin LCL
-    //   await prefs.setString('version', '1.0'); //
-    //   await prefs.setString('token', 'dummy-local-token-for-admin-lcl'); //
+    //   await prefs.setBool('isLoggedIn', true);
+    //   await prefs.setString('username', username);
+    //   await prefs.setString('password', password);
+    //   await prefs.setString('role', '5'); // Role untuk Kepala Gudang
+    //   await prefs.setString('version', '1.0');
+    //   await prefs.setString('token', 'dummy-local-token-for-kepala-gudang');
 
-    //   print('Force Login Berhasil. Navigasi ke Halaman Admin LCL.');
-    //   // Kembalikan Map yang tidak null untuk menandakan login berhasil
+    //   print('Force Login Berhasil. Navigasi ke Halaman Kepala Gudang.');
     //   return {'status': 'success', 'message': 'Local force login'};
     // }
     // --- END: BLOK KODE UNTUK FORCE LOGIN ---
@@ -41,49 +41,20 @@ class AuthService {
     final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
     // final imei = await _getDeviceImei();
 
-    // // Try Pelabuhan login (type 3) with version 1.0
-    // final pelabuhanResult = await _attemptLogin(
-    //   username: username,
-    //   password: password,
-    //   // type: '3',
-    //   version: '1.0',
-    //   imei: imei,
-    // );
-
-    // if (pelabuhanResult != null) {
-    //   return pelabuhanResult;
-    // }
-
-    // Try Driver login (type 1) with version 2.7
-    // final driverResult = await _attemptLogin(
-    //   username: username,
-    //   password: password,
-    //   // type: '1',
-    //   version: '2.7',
-    //   imei: imei,
-    // );
-
-    // if (driverResult != null) {
-    //   return driverResult;
-    // }
-
-    // Try Pelabuhan login (type 4) with version 1.0
-    final lclResult = await _attemptLogin(
+    // Cukup panggil _attemptLogin satu kali.
+    // API yang akan menentukan tipe user berdasarkan username & password.
+    return await _attemptLogin(
       username: username,
       password: password,
-      // type: '4',
       version: '1.0',
       imei: imei,
     );
-
-    return lclResult;
   }
 
   Future<Map<String, dynamic>?> _attemptLogin({
     required String username,
     required String password,
     required String version,
-    // required String type,
     required String imei,
   }) async {
     try {
@@ -91,13 +62,11 @@ class AuthService {
         'username': username,
         'password': password,
         'version': version,
-        // 'type': type,
         'imei': imei,
         'firebase': 'dummy_token',
       };
 
-      // print('Attempting login with version: $version, type: $type');
-      print('Attempting login with version: $version');
+      print('Attempting login for user: $username');
 
       final res = await http
           .post(
@@ -105,34 +74,50 @@ class AuthService {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+
+        // Cek jika API merespon dengan 'error' == false dan 'data' tidak null
         if (data['error'] == false && data['data'] != null) {
           final user = data['data'];
           final prefs = await SharedPreferences.getInstance();
 
+          // Ambil 'type' dari response API dan simpan
+          final role = user['type']?.toString();
+          if (role == null) {
+            print('Login failed: Role (type) not found in API response.');
+            return null;
+          }
+
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('username', username);
-          await prefs.setString('password', password);
-          await prefs.setString('role', user['type'] ?? '');
+          await prefs.setString(
+            'password',
+            password,
+          ); // Simpan untuk soft-refresh
+          await prefs.setString('role', role); // Simpan role dari API
           await prefs.setString('version', version);
           await prefs.setString('token', user['token'] ?? '');
 
-          print('Login success with type: ${user['type']}, version: $version');
-          return user;
+          print('Login success! Role: $role, Version: $version');
+          return user; // Kembalikan data user untuk menandakan sukses
         } else {
+          // Pesan error dari API
           print('Login failed: ${data['message']}');
+          return null;
         }
       } else {
+        // Error koneksi HTTP
         print('HTTP error: ${res.statusCode} - ${res.body}');
+        return null;
       }
     } catch (e) {
+      // Error lain (timeout, tidak ada koneksi, dll)
       print('Error during login attempt: $e');
+      return null;
     }
-
-    return null;
   }
 
   Future<void> logout() async {
