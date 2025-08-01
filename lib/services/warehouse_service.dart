@@ -74,4 +74,44 @@ class WarehouseService {
       return null;
     }
   }
+
+  Future<bool> updateStatusConfirmed({
+    required String token,
+    required String numberLpbItem,
+    required String data,
+    required String notes,
+  }) async {
+    final url = Uri.parse('$_baseUrl/update_status_confirmed');
+
+    try {
+      final response = await http.post(
+        url,
+        body: {
+          'token': token,
+          'number_lpb_item': numberLpbItem,
+          'data': data,
+          'notes': notes,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        return result['status'] == true;
+      } else if (response.statusCode == 401) {
+        final newToken = await _authService.softLoginRefresh();
+        if (newToken != null) {
+          return updateStatusConfirmed(
+            token: newToken,
+            numberLpbItem: numberLpbItem,
+            data: data,
+            notes: notes,
+          );
+        }
+      }
+      return false;
+    } catch (e) {
+      print('Error updating confirmed status: $e');
+      return false;
+    }
+  }
 }

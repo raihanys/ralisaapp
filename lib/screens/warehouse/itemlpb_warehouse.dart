@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/warehouse_service.dart';
+import '../../services/auth_service.dart';
 
 class ItemLpbWarehouse extends StatefulWidget {
   final String noLpb;
@@ -11,6 +12,7 @@ class ItemLpbWarehouse extends StatefulWidget {
 }
 
 class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
+  late AuthService _authService;
   late WarehouseService _warehouseService;
   List<Map<String, dynamic>> _items = [];
   bool _isLoading = true;
@@ -21,6 +23,7 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
   void initState() {
     super.initState();
     _warehouseService = WarehouseService();
+    _authService = AuthService();
     _fetchItems();
   }
 
@@ -48,6 +51,60 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal memuat detail: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _processData() async {
+    // Cek minimal ada 1 item yang dipilih
+    if (!_checkedItems.contains(true)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih minimal 1 item terlebih dahulu')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final token = await _authService.getValidToken();
+
+    if (token == null) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Token tidak valid, silakan login ulang')),
+      );
+      return;
+    }
+
+    bool allSuccess = true;
+    final notes = _notesController.text;
+
+    // Proses per item yang dicentang
+    for (int i = 0; i < _items.length; i++) {
+      if (_checkedItems[i]) {
+        final item = _items[i];
+        final success = await _warehouseService.updateStatusConfirmed(
+          token: token,
+          numberLpbItem: widget.noLpb,
+          data:
+              item['tt_barang_id']
+                  .toString(), // Asumsikan ada field tt_barang_id
+          notes: notes,
+        );
+
+        if (!success) allSuccess = false;
+      }
+    }
+
+    setState(() => _isLoading = false);
+
+    if (allSuccess) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Data berhasil diproses')));
+      Navigator.pop(context); // Kembali ke halaman sebelumnya
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Beberapa item gagal diproses')),
       );
     }
   }
@@ -196,8 +253,7 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                       ),
                                     ),
                                     Center(
-                                      child: IconButton(
-                                        icon: const Icon(Icons.add, size: 18),
+                                      child: ElevatedButton(
                                         onPressed: () {
                                           final code =
                                               item['barang_kode'] ?? '';
@@ -212,6 +268,30 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                             });
                                           }
                                         },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              Colors.green, // Warna hijau
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 6,
+                                          ),
+                                          minimumSize:
+                                              Size.zero, // Supaya kecil
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          '+',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -250,9 +330,7 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton(
-                          onPressed: () {
-                            // TODO: proses data
-                          },
+                          onPressed: _isLoading ? null : _processData,
                           child: const Text('Proses'),
                         ),
                       ],
