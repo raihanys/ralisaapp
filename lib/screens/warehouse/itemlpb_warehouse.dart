@@ -75,33 +75,48 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
       return;
     }
 
-    bool allSuccess = true;
+    bool success = true;
     final notes = _notesController.text;
 
-    // Proses per item yang dicentang
+    // Kumpulkan ID barang yang dicentang
+    final List<String> selectedIds = [];
     for (int i = 0; i < _items.length; i++) {
       if (_checkedItems[i]) {
-        final item = _items[i];
-        final success = await _warehouseService.updateStatusConfirmed(
-          token: token,
-          numberLpbItem: widget.noLpb,
-          data:
-              item['tt_barang_id']
-                  .toString(), // Asumsikan ada field tt_barang_id
-          notes: notes,
-        );
-
-        if (!success) allSuccess = false;
+        final barangId = _items[i]['tt_barang_id']?.toString();
+        if (barangId == null || barangId.isEmpty) {
+          debugPrint("ID barang kosong untuk index $i");
+          success = false;
+        } else {
+          selectedIds.add(barangId);
+        }
       }
+    }
+
+    // PERBAIKAN: Pindahkan panggilan bulk update ke LUAR loop
+    if (selectedIds.isNotEmpty) {
+      // Sesuaikan format data dengan kebutuhan backend
+      final List<Map<String, dynamic>> payloadData =
+          selectedIds.map((id) {
+            return {"id": int.tryParse(id) ?? 0}; // Konversi ke integer
+          }).toList();
+
+      final result = await _warehouseService.updateBulkStatusConfirmed(
+        token: token,
+        numberLpbItem: widget.noLpb, // Gunakan parameter yang benar
+        data: payloadData, // Kirim data dalam format yang diminta
+        notes: notes,
+      );
+
+      if (!result) success = false;
     }
 
     setState(() => _isLoading = false);
 
-    if (allSuccess) {
+    if (success) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Data berhasil diproses')));
-      Navigator.pop(context); // Kembali ke halaman sebelumnya
+      Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Beberapa item gagal diproses')),
@@ -252,44 +267,49 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                         },
                                       ),
                                     ),
-                                    Center(
-                                      child: ElevatedButton(
-                                        onPressed: () {
-                                          final code =
-                                              item['barang_kode'] ?? '';
-                                          if (code.isNotEmpty) {
-                                            setState(() {
-                                              if (_notesController
-                                                  .text
-                                                  .isNotEmpty) {
-                                                _notesController.text += ', ';
-                                              }
-                                              _notesController.text += code;
-                                            });
-                                          }
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.green, // Warna hijau
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 6,
-                                          ),
-                                          minimumSize:
-                                              Size.zero, // Supaya kecil
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                      ), // atur sesuai selera
+                                      child: Align(
+                                        alignment: Alignment.center,
+                                        child: ElevatedButton(
+                                          onPressed: () {
+                                            final code =
+                                                item['barang_kode'] ?? '';
+                                            if (code.isNotEmpty) {
+                                              setState(() {
+                                                if (_notesController
+                                                    .text
+                                                    .isNotEmpty) {
+                                                  _notesController.text += ', ';
+                                                }
+                                                _notesController.text += code;
+                                              });
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
                                           ),
-                                        ),
-                                        child: const Text(
-                                          '+',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
+                                          child: const Text(
+                                            '+',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -322,16 +342,38 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                     // Action Buttons
                     const SizedBox(height: 20),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Batal'),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text('Kembali'),
+                          ),
                         ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _processData,
-                          child: const Text('Proses'),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _processData,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red[300],
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child:
+                                _isLoading
+                                    ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : const Text('Proses'),
+                          ),
                         ),
                       ],
                     ),

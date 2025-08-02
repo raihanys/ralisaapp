@@ -10,7 +10,8 @@ class LCLService {
   // PRODUCTION
   // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
   // DEVELOPMENT
-  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  final String _baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api';
 
   Future<List<Map<String, dynamic>>?> getContainerNumberLCL(
     String query,

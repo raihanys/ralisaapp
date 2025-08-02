@@ -3,6 +3,7 @@ import 'itemlpb_warehouse.dart';
 import '../login_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/warehouse_service.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class MainWarehouse extends StatefulWidget {
   const MainWarehouse({Key? key}) : super(key: key);
@@ -17,12 +18,19 @@ class _MainWarehouseState extends State<MainWarehouse> {
   List<Map<String, dynamic>> _lpbList = [];
   bool _isLoading = true;
 
+  final RefreshController _refreshController = RefreshController(
+    initialRefresh: false,
+  );
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _filteredLpbList = [];
+
   @override
   void initState() {
     super.initState();
     _authService = AuthService();
     _warehouseService = WarehouseService(); // Inisialisasi service
     _fetchLPBData();
+    _filteredLpbList = _lpbList;
   }
 
   Future<void> _fetchLPBData() async {
@@ -49,6 +57,25 @@ class _MainWarehouseState extends State<MainWarehouse> {
     }
   }
 
+  void _onRefresh() async {
+    await _fetchLPBData();
+    _refreshController.refreshCompleted();
+  }
+
+  void _filterList(String query) {
+    setState(() {
+      _filteredLpbList =
+          _lpbList.where((item) {
+            final noLpb = item['no_lpb']?.toString().toLowerCase() ?? '';
+            final sender = item['sender']?.toString().toLowerCase() ?? '';
+            final receiver = item['receiver']?.toString().toLowerCase() ?? '';
+            return noLpb.contains(query.toLowerCase()) ||
+                sender.contains(query.toLowerCase()) ||
+                receiver.contains(query.toLowerCase());
+          }).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -59,7 +86,43 @@ class _MainWarehouseState extends State<MainWarehouse> {
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : _buildContent(),
+              : Column(
+                children: [
+                  // SEARCH BAR
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Cari LPB...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        suffixIcon:
+                            _searchController.text.isNotEmpty
+                                ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _filterList('');
+                                  },
+                                )
+                                : null,
+                      ),
+                      onChanged: _filterList,
+                    ),
+                  ),
+                  // PULL TO REFRESH CONTENT
+                  Expanded(
+                    child: SmartRefresher(
+                      controller: _refreshController,
+                      onRefresh: _onRefresh,
+                      child: _buildContent(),
+                    ),
+                  ),
+                ],
+              ),
     );
   }
 
@@ -121,9 +184,9 @@ class _MainWarehouseState extends State<MainWarehouse> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _lpbList.length,
+      itemCount: _filteredLpbList.length,
       itemBuilder: (context, index) {
-        final item = _lpbList[index];
+        final item = _filteredLpbList[index];
 
         // Format status text based on received_in value
         String statusText;
@@ -149,34 +212,41 @@ class _MainWarehouseState extends State<MainWarehouse> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      item['no_lpb'] ?? 'No LPB',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    Expanded(
+                      // Make text expandable
+                      child: Text(
+                        item['no_lpb'] ?? 'No LPB',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
+                        horizontal: 8, // Reduce padding
+                        vertical: 2, // Reduce padding
                       ),
                       decoration: BoxDecoration(
                         color: statusColor,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(
+                          12,
+                        ), // Smaller radius
                       ),
                       child: Text(
                         statusText,
                         style: TextStyle(
+                          // Smaller font
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
+                          fontSize: 9, // Reduced font size
                         ),
                       ),
                     ),
@@ -219,7 +289,12 @@ class _MainWarehouseState extends State<MainWarehouse> {
                                 (context) =>
                                     ItemLpbWarehouse(noLpb: item['no_lpb']),
                           ),
-                        );
+                        ).then((shouldRefresh) {
+                          // Add this callback
+                          if (shouldRefresh == true) {
+                            _fetchLPBData(); // Refresh data when returning
+                          }
+                        });
                       },
                       child: const Text("Proses"),
                     ),
