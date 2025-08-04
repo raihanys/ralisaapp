@@ -4,7 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/lcl_service.dart';
 
-// Model untuk Sugesti Kontainer (bisa ditaruh di file terpisah jika digunakan di banyak tempat)
+// Model untuk Sugesti Kontainer
 class ContainerSuggestion {
   final String id;
   final String number;
@@ -46,9 +46,12 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
   // --- NEW ---: State to check if a container has been selected.
   bool _isContainerSelected = false;
 
+  List<ContainerSuggestion> _allContainers = [];
+
   @override
   void initState() {
     super.initState();
+    _loadAllContainers();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showContainerSelectionModal();
     });
@@ -71,36 +74,52 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
     await prefs.remove('container_number');
   }
 
-  Future<void> _fetchContainerSuggestions(String query) async {
-    if (_containerDebounce?.isActive ?? false) _containerDebounce?.cancel();
+  Future<void> _loadAllContainers() async {
+    setState(() => _isFetchingContainers = true);
+    final containersData = await _lclService.getAllContainerNumbers();
+    if (containersData != null) {
+      setState(() {
+        _allContainers =
+            containersData
+                .map((item) => ContainerSuggestion.fromJson(item))
+                .toList();
+      });
+    }
+    setState(() => _isFetchingContainers = false);
+  }
 
-    _containerDebounce = Timer(const Duration(milliseconds: 500), () async {
-      if (!mounted) return;
-      setState(() => _isFetchingContainers = true);
+  void _filterContainerSuggestions(String query, StateSetter dialogSetState) {
+    List<ContainerSuggestion> filtered;
+    if (query.isEmpty) {
+      filtered = _allContainers;
+    } else {
+      filtered =
+          _allContainers.where((container) {
+            return container.number.toLowerCase().contains(query.toLowerCase());
+          }).toList();
+    }
 
-      try {
-        final suggestionsData = await _lclService.getContainerNumberLCL(query);
-        if (mounted && suggestionsData != null) {
-          setState(() {
-            _containerSuggestions =
-                suggestionsData
-                    .map((item) => ContainerSuggestion.fromJson(item))
-                    .toList();
-          });
-        }
-      } finally {
-        if (mounted) setState(() => _isFetchingContainers = false);
-      }
+    // Gunakan dialogSetState untuk update UI di dalam dialog
+    dialogSetState(() {
+      _containerSuggestions = filtered;
     });
   }
 
   void _showContainerSelectionModal() {
+    // PENTING: Atur state awal suggestions SEBELUM dialog tampil
+    // Ini untuk mengatasi masalah "muter-muter"
+    setState(() {
+      _containerSuggestions = _allContainers;
+      _containerSearchController.clear();
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            // <-- setDialogState ini akan kita pakai
             return AlertDialog(
               title: const Text('Pilih Nomor Kontainer'),
               content: Column(
@@ -108,18 +127,18 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                 children: [
                   TextField(
                     controller: _containerSearchController,
-                    autofocus: true,
+                    onChanged: (value) {
+                      // Panggil fungsi yang sudah diubah dan berikan setDialogState
+                      _filterContainerSuggestions(value, setDialogState);
+                    },
                     decoration: const InputDecoration(
-                      labelText: 'Ketik nomor kontainer',
+                      labelText: 'Cari nomor kontainer...',
                       suffixIcon: Icon(Icons.search),
                     ),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        _fetchContainerSuggestions(value);
-                      });
-                    },
                   ),
                   const SizedBox(height: 16),
+                  // Kondisi loading sekarang akan selalu false saat dialog dibuka karena data sudah siap
+                  // jadi CircularProgressIndicator tidak akan terjebak lagi.
                   _isFetchingContainers
                       ? const CircularProgressIndicator()
                       : SizedBox(
@@ -365,18 +384,11 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Ready to Ship',
-                      style: TextStyle(
+                    Text(
+                      'Shipping in : ${_selectedContainerNumber ?? '...'}',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'No. Kontainer: ${_selectedContainerNumber ?? '...'}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.blueGrey,
                       ),
                     ),
                   ],

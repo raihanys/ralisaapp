@@ -60,11 +60,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   String? _selectedBarangId;
   bool _isNamaFromSuggestion = false;
 
+  List<ItemSuggestion> _allItems = [];
+
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
+    _loadAllItems();
     _loadTipeBarang();
   }
 
@@ -107,9 +110,19 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     });
   }
 
-  Future<void> _fetchItemSuggestions(String query) async {
-    if (_debounce?.isActive ?? false) _debounce?.cancel();
+  Future<void> _loadAllItems() async {
+    setState(() => _isFetchingSuggestions = true);
+    final itemsData = await _lclService.getAllItemSuggestions();
+    if (itemsData != null) {
+      setState(() {
+        _allItems =
+            itemsData.map((item) => ItemSuggestion.fromJson(item)).toList();
+      });
+    }
+    setState(() => _isFetchingSuggestions = false);
+  }
 
+  void _filterItemSuggestions(String query) {
     if (query.length < 3) {
       setState(() {
         _itemSuggestions = [];
@@ -118,29 +131,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       return;
     }
 
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      setState(() {
-        _isFetchingSuggestions = true;
-        _isSuggestionBoxVisible = true;
-      });
+    final filtered =
+        _allItems.where((item) {
+          return item.name.toLowerCase().contains(query.toLowerCase());
+        }).toList();
 
-      try {
-        final suggestionsData = await _lclService.getItemSuggestions(query);
-        if (mounted && suggestionsData != null) {
-          setState(() {
-            _itemSuggestions =
-                suggestionsData
-                    .map((item) => ItemSuggestion.fromJson(item))
-                    .toList();
-          });
-        } else {
-          if (mounted) setState(() => _itemSuggestions = []);
-        }
-      } catch (e) {
-        if (mounted) setState(() => _itemSuggestions = []);
-      } finally {
-        if (mounted) setState(() => _isFetchingSuggestions = false);
-      }
+    setState(() {
+      _itemSuggestions = filtered;
+      _isSuggestionBoxVisible = true;
     });
   }
 
@@ -304,24 +302,17 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                   children: [
                     TextFormField(
                       controller: _namaController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Nama Barang',
-                        border: OutlineInputBorder(),
-                        hintText: 'Ketik min. 3 karakter',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                            _filterItemSuggestions(_namaController.text);
+                          },
+                        ),
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _isNamaFromSuggestion = false;
-                          _selectedTipeId = null;
-                          _selectedBarangId = null;
-                        });
-
-                        if (value.length >= 3) {
-                          _fetchItemSuggestions(value);
-                        } else {
-                          setState(() => _isSuggestionBoxVisible = false);
-                        }
-                      },
                       validator:
                           (value) =>
                               (value == null || value.isEmpty)
@@ -579,7 +570,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                     dense: true,
                     title: Text(item.name),
                     subtitle: Text(item.type),
-                    onTap: () {
+                    onTap: () async {
+                      // 1. Hilangkan fokus dari TextField
+                      FocusScope.of(context).unfocus();
+
+                      // 2. Tutup suggestion box dan update form
                       setState(() {
                         _namaController.text = item.name;
                         _selectedBarangId = item.id;
@@ -596,8 +591,15 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         }
 
                         _isNamaFromSuggestion = true;
-                        _isSuggestionBoxVisible = false;
-                        FocusScope.of(context).unfocus();
+                        _isSuggestionBoxVisible = false; // <- nutup box
+                      });
+
+                      // 3. Delay untuk memastikan UI settle
+                      await Future.delayed(const Duration(milliseconds: 100));
+
+                      // 4. Force refresh suggestion list kosong biar bener-bener ilang
+                      setState(() {
+                        _itemSuggestions = [];
                       });
                     },
                   );

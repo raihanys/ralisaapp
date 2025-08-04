@@ -160,14 +160,11 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                   const SizedBox(height: 24), // 3. Tambah spasi vertikal
                   Text(
                     'Aplikasi Kepala Gudang',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Text(
                     'Detail LPB: ${widget.noLpb}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -348,7 +345,6 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context, false),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
                             child: const Text('Kembali'),
@@ -359,7 +355,6 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _processData,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red[300],
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
                             child:

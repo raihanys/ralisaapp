@@ -78,6 +78,9 @@ class _ContainerScreenState extends State<ContainerScreen> {
   String? _selectedBarangId;
   bool _isNamaFromSuggestion = false;
 
+  List<ContainerSuggestion> _allContainers = [];
+  List<ItemSuggestion> _allItems = [];
+
   final _formKey = GlobalKey<FormState>();
 
   // --- STATE UNTUK KONTAINER ---
@@ -93,6 +96,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
   void initState() {
     super.initState();
     _loadTipeBarang();
+    _loadAllContainers(); // Load semua container
+    _loadAllItems(); // Load semua barang
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showContainerSelectionModal();
     });
@@ -126,36 +131,85 @@ class _ContainerScreenState extends State<ContainerScreen> {
     await prefs.remove('container_number');
   }
 
-  Future<void> _fetchContainerSuggestions(String query) async {
-    if (_containerDebounce?.isActive ?? false) _containerDebounce?.cancel();
+  Future<void> _loadAllContainers() async {
+    setState(() => _isFetchingContainers = true);
+    final containersData = await _lclService.getAllContainerNumbers();
+    if (containersData != null) {
+      setState(() {
+        _allContainers =
+            containersData
+                .map((item) => ContainerSuggestion.fromJson(item))
+                .toList();
+      });
+    }
+    setState(() => _isFetchingContainers = false);
+  }
 
-    _containerDebounce = Timer(const Duration(milliseconds: 500), () async {
-      if (!mounted) return;
-      setState(() => _isFetchingContainers = true);
+  Future<void> _loadAllItems() async {
+    setState(() => _isFetchingSuggestions = true);
+    final itemsData = await _lclService.getAllItemSuggestions();
+    if (itemsData != null) {
+      setState(() {
+        _allItems =
+            itemsData.map((item) => ItemSuggestion.fromJson(item)).toList();
+      });
+    }
+    setState(() => _isFetchingSuggestions = false);
+  }
 
-      try {
-        final suggestionsData = await _lclService.getContainerNumberLCL(query);
-        if (mounted && suggestionsData != null) {
-          setState(() {
-            _containerSuggestions =
-                suggestionsData
-                    .map((item) => ContainerSuggestion.fromJson(item))
-                    .toList();
-          });
-        }
-      } finally {
-        if (mounted) setState(() => _isFetchingContainers = false);
-      }
+  void _filterContainerSuggestions(String query, StateSetter dialogSetState) {
+    List<ContainerSuggestion> filtered;
+    if (query.isEmpty) {
+      filtered = _allContainers;
+    } else {
+      filtered =
+          _allContainers.where((container) {
+            return container.number.toLowerCase().contains(query.toLowerCase());
+          }).toList();
+    }
+
+    // Gunakan dialogSetState untuk update UI di dalam dialog
+    dialogSetState(() {
+      _containerSuggestions = filtered;
+    });
+  }
+
+  // Fungsi filter lokal barang
+  void _filterItemSuggestions(String query) {
+    if (query.length < 3) {
+      setState(() {
+        _itemSuggestions = [];
+        _isSuggestionBoxVisible = false;
+      });
+      return;
+    }
+
+    final filtered =
+        _allItems.where((item) {
+          return item.name.toLowerCase().contains(query.toLowerCase());
+        }).toList();
+
+    setState(() {
+      _itemSuggestions = filtered;
+      _isSuggestionBoxVisible = true;
     });
   }
 
   void _showContainerSelectionModal() {
+    // PENTING: Atur state awal suggestions SEBELUM dialog tampil
+    // Ini untuk mengatasi masalah "muter-muter"
+    setState(() {
+      _containerSuggestions = _allContainers;
+      _containerSearchController.clear();
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            // <-- setDialogState ini akan kita pakai
             return AlertDialog(
               title: const Text('Pilih Nomor Kontainer'),
               content: Column(
@@ -163,18 +217,18 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 children: [
                   TextField(
                     controller: _containerSearchController,
-                    autofocus: true,
+                    onChanged: (value) {
+                      // Panggil fungsi yang sudah diubah dan berikan setDialogState
+                      _filterContainerSuggestions(value, setDialogState);
+                    },
                     decoration: const InputDecoration(
-                      labelText: 'Ketik nomor kontainer',
+                      labelText: 'Cari nomor kontainer...',
                       suffixIcon: Icon(Icons.search),
                     ),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        _fetchContainerSuggestions(value);
-                      });
-                    },
                   ),
                   const SizedBox(height: 16),
+                  // Kondisi loading sekarang akan selalu false saat dialog dibuka karena data sudah siap
+                  // jadi CircularProgressIndicator tidak akan terjebak lagi.
                   _isFetchingContainers
                       ? const CircularProgressIndicator()
                       : SizedBox(
@@ -239,43 +293,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
     setState(() {
       _isFlashOn = !_isFlashOn;
       _controller.toggleTorch();
-    });
-  }
-
-  Future<void> _fetchItemSuggestions(String query) async {
-    if (_debounce?.isActive ?? false) _debounce?.cancel();
-
-    if (query.length < 3) {
-      setState(() {
-        _itemSuggestions = [];
-        _isSuggestionBoxVisible = false;
-      });
-      return;
-    }
-
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      setState(() {
-        _isFetchingSuggestions = true;
-        _isSuggestionBoxVisible = true;
-      });
-
-      try {
-        final suggestionsData = await _lclService.getItemSuggestions(query);
-        if (mounted && suggestionsData != null) {
-          setState(() {
-            _itemSuggestions =
-                suggestionsData
-                    .map((item) => ItemSuggestion.fromJson(item))
-                    .toList();
-          });
-        } else {
-          if (mounted) setState(() => _itemSuggestions = []);
-        }
-      } catch (e) {
-        if (mounted) setState(() => _itemSuggestions = []);
-      } finally {
-        if (mounted) setState(() => _isFetchingSuggestions = false);
-      }
     });
   }
 
@@ -447,30 +464,28 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   children: [
                     TextFormField(
                       controller: _namaController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nama Barang',
-                        border: OutlineInputBorder(),
-                        hintText: 'Ketik min. 3 karakter',
+                      // HAPUS onChanged dari sini
+                      decoration: InputDecoration(
+                        labelText: 'Nama Barang', // Tambahkan label agar jelas
+                        border: const OutlineInputBorder(),
+                        // Tambahkan IconButton di sebelah kanan
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: () {
+                            // Panggil filter HANYA saat tombol ditekan
+                            // Pastikan keyboard tertutup agar tidak mengganggu view
+                            FocusScope.of(context).unfocus();
+                            _filterItemSuggestions(_namaController.text);
+                          },
+                        ),
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _isNamaFromSuggestion = false;
-                          _selectedTipeId = null;
-                          _selectedBarangId = null;
-                        });
-
-                        if (value.length >= 3) {
-                          _fetchItemSuggestions(value);
-                        } else {
-                          setState(() => _isSuggestionBoxVisible = false);
-                        }
-                      },
                       validator:
                           (value) =>
                               (value == null || value.isEmpty)
                                   ? 'Nama Barang tidak boleh kosong'
                                   : null,
                     ),
+                    // Bagian ini tidak perlu diubah, akan bekerja otomatis
                     if (_isSuggestionBoxVisible) _buildItemSuggestionList(),
                   ],
                 ),
@@ -734,7 +749,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     dense: true,
                     title: Text(item.name),
                     subtitle: Text(item.type),
-                    onTap: () {
+                    onTap: () async {
+                      // 1. Hilangkan fokus dari TextField
+                      FocusScope.of(context).unfocus();
+
+                      // 2. Tutup suggestion box dan update form
                       setState(() {
                         _namaController.text = item.name;
                         _selectedBarangId = item.id;
@@ -751,8 +770,15 @@ class _ContainerScreenState extends State<ContainerScreen> {
                         }
 
                         _isNamaFromSuggestion = true;
-                        _isSuggestionBoxVisible = false;
-                        FocusScope.of(context).unfocus();
+                        _isSuggestionBoxVisible = false; // <- nutup box
+                      });
+
+                      // 3. Delay untuk memastikan UI settle
+                      await Future.delayed(const Duration(milliseconds: 100));
+
+                      // 4. Force refresh suggestion list kosong biar bener-bener ilang
+                      setState(() {
+                        _itemSuggestions = [];
                       });
                     },
                   );
@@ -794,18 +820,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Container',
+                    Text(
+                      'Container : ${_selectedContainerNumber ?? '...'}',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'No. Kontainer: ${_selectedContainerNumber ?? '...'}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.blueGrey,
                       ),
                     ),
                   ],

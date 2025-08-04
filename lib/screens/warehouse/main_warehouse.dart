@@ -14,7 +14,7 @@ class MainWarehouse extends StatefulWidget {
 
 class _MainWarehouseState extends State<MainWarehouse> {
   late AuthService _authService;
-  late WarehouseService _warehouseService; // Service baru
+  late WarehouseService _warehouseService;
   List<Map<String, dynamic>> _lpbList = [];
   bool _isLoading = true;
 
@@ -28,27 +28,19 @@ class _MainWarehouseState extends State<MainWarehouse> {
   void initState() {
     super.initState();
     _authService = AuthService();
-    _warehouseService = WarehouseService(); // Inisialisasi service
+    _warehouseService = WarehouseService();
     _fetchLPBData();
-    _filteredLpbList = _lpbList;
   }
 
   Future<void> _fetchLPBData() async {
     setState(() => _isLoading = true);
     try {
       final data = await _warehouseService.getLPBHeaderAll();
-      if (data != null) {
-        setState(() {
-          _lpbList = data;
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
-        // Tampilkan error ke pengguna
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Gagal memuat data LPB')));
-      }
+      setState(() {
+        _lpbList = data ?? [];
+        _filteredLpbList = _lpbList;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(
@@ -63,16 +55,22 @@ class _MainWarehouseState extends State<MainWarehouse> {
   }
 
   void _filterList(String query) {
+    if (_lpbList.isEmpty) return;
+
     setState(() {
-      _filteredLpbList =
-          _lpbList.where((item) {
-            final noLpb = item['no_lpb']?.toString().toLowerCase() ?? '';
-            final sender = item['sender']?.toString().toLowerCase() ?? '';
-            final receiver = item['receiver']?.toString().toLowerCase() ?? '';
-            return noLpb.contains(query.toLowerCase()) ||
-                sender.contains(query.toLowerCase()) ||
-                receiver.contains(query.toLowerCase());
-          }).toList();
+      if (query.isEmpty) {
+        _filteredLpbList = _lpbList; // Tampilkan semua data saat query kosong
+      } else {
+        _filteredLpbList =
+            _lpbList.where((item) {
+              final noLpb = item['no_lpb']?.toString().toLowerCase() ?? '';
+              final sender = item['sender']?.toString().toLowerCase() ?? '';
+              final receiver = item['receiver']?.toString().toLowerCase() ?? '';
+              return noLpb.contains(query.toLowerCase()) ||
+                  sender.contains(query.toLowerCase()) ||
+                  receiver.contains(query.toLowerCase());
+            }).toList();
+      }
     });
   }
 
@@ -88,31 +86,6 @@ class _MainWarehouseState extends State<MainWarehouse> {
               ? const Center(child: CircularProgressIndicator())
               : Column(
                 children: [
-                  // SEARCH BAR
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Cari LPB...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        suffixIcon:
-                            _searchController.text.isNotEmpty
-                                ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _filterList('');
-                                  },
-                                )
-                                : null,
-                      ),
-                      onChanged: _filterList,
-                    ),
-                  ),
                   // PULL TO REFRESH CONTENT
                   Expanded(
                     child: SmartRefresher(
@@ -159,13 +132,53 @@ class _MainWarehouseState extends State<MainWarehouse> {
               ],
             ),
             const SizedBox(height: 24),
-            Text(
-              'Aplikasi Kepala Gudang',
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            Text(
-              'Daftar LPB',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Aplikasi Kepala Gudang',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      Text(
+                        'Daftar LPB',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Cari LPB...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      suffixIcon:
+                          _searchController.text.isNotEmpty
+                              ? IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _filterList('');
+                                },
+                              )
+                              : null,
+                    ),
+                    onChanged: _filterList,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -220,7 +233,6 @@ class _MainWarehouseState extends State<MainWarehouse> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      // Make text expandable
                       child: Text(
                         item['no_lpb'] ?? 'No LPB',
                         style: TextStyle(
@@ -231,22 +243,19 @@ class _MainWarehouseState extends State<MainWarehouse> {
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8, // Reduce padding
-                        vertical: 2, // Reduce padding
+                        horizontal: 8,
+                        vertical: 2,
                       ),
                       decoration: BoxDecoration(
                         color: statusColor,
-                        borderRadius: BorderRadius.circular(
-                          12,
-                        ), // Smaller radius
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         statusText,
                         style: TextStyle(
-                          // Smaller font
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
-                          fontSize: 9, // Reduced font size
+                          fontSize: 10,
                         ),
                       ),
                     ),
@@ -290,9 +299,8 @@ class _MainWarehouseState extends State<MainWarehouse> {
                                     ItemLpbWarehouse(noLpb: item['no_lpb']),
                           ),
                         ).then((shouldRefresh) {
-                          // Add this callback
                           if (shouldRefresh == true) {
-                            _fetchLPBData(); // Refresh data when returning
+                            _fetchLPBData(); // Refresh data setelah kembali
                           }
                         });
                       },

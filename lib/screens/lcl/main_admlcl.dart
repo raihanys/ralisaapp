@@ -118,7 +118,7 @@ class HomeScreen extends StatelessWidget {
                 _buildMenuCard(
                   context,
                   Icons.check_circle,
-                  'Ready to Ship',
+                  'Shipping',
                   Colors.blue,
                   () => Navigator.push(
                     context,

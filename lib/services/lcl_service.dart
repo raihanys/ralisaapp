@@ -10,19 +10,14 @@ class LCLService {
   // PRODUCTION
   // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
   // DEVELOPMENT
-  // final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  final String _baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api';
+  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
+  // final String _baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api';
 
-  Future<List<Map<String, dynamic>>?> getContainerNumberLCL(
-    String query,
-  ) async {
+  Future<List<Map<String, dynamic>>?> getAllContainerNumbers() async {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
-    // Menggunakan _baseUrl untuk membangun URL
-    final url = Uri.parse(
-      '$_baseUrl/getContainerNumberLCL?token=$token&container_number=$query',
-    );
+    final url = Uri.parse('$_baseUrl/getContainerNumberLCL?token=$token');
 
     try {
       final response = await http.get(url);
@@ -34,7 +29,7 @@ class LCLService {
       }
       return null;
     } catch (e) {
-      print('Error getting container numbers: $e');
+      print('Error getting all container numbers: $e');
       return null;
     }
   }
@@ -60,12 +55,11 @@ class LCLService {
     }
   }
 
-  Future<List<Map<String, dynamic>>?> getItemSuggestions(String query) async {
+  Future<List<Map<String, dynamic>>?> getAllItemSuggestions() async {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
-    // Menggunakan _baseUrl untuk membangun URL
-    final url = Uri.parse('$_baseUrl/getItemDetail?token=$token&name=$query');
+    final url = Uri.parse('$_baseUrl/getItemDetail?token=$token');
 
     try {
       final response = await http.get(url);
@@ -77,7 +71,7 @@ class LCLService {
       }
       return null;
     } catch (e) {
-      print('Error getting suggestions: $e');
+      print('Error getting all item suggestions: $e');
       return null;
     }
   }
