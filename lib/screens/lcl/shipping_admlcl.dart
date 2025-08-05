@@ -42,7 +42,6 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
   String? _selectedContainerNumber;
   List<ContainerSuggestion> _containerSuggestions = [];
   bool _isFetchingContainers = false;
-  Timer? _containerDebounce;
   // --- NEW ---: State to check if a container has been selected.
   bool _isContainerSelected = false;
 
@@ -62,7 +61,6 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
     _clearContainerSelection();
     _controller.dispose();
     _containerSearchController.dispose();
-    _containerDebounce?.cancel();
     super.dispose();
   }
 

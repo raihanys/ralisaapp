@@ -88,14 +88,15 @@ class LCLService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['status'] == true && data['data'] != null) {
-          return (data['data']['tipe_barang'] as List)
+          // PASTIKAN selalu return list meski kosong
+          return (data['data']['tipe_barang'] as List? ?? [])
               .cast<Map<String, dynamic>>();
         }
       }
-      return [];
+      return []; // Return empty list jika error
     } catch (e) {
       print('Error getting item types: $e');
-      return [];
+      return []; // Return empty list jika error
     }
   }
 
@@ -107,7 +108,7 @@ class LCLService {
     required String width,
     required String nama_barang,
     required String tipe_barang_id,
-    String? id_barang,
+    String? barang_id,
     required String processType,
     String? container_number,
   }) async {
@@ -117,23 +118,25 @@ class LCLService {
       return false;
     }
 
+    // Apply trim to all string parameters before sending
     final fields = {
       'token': token,
-      'number_lpb_item': number_lpb_item,
-      'weight': weight,
-      'height': height,
-      'length': length,
-      'width': width,
-      'nama_barang': nama_barang,
-      'tipe_barang': tipe_barang_id,
-      'process_type': processType,
+      'number_lpb_item': number_lpb_item.trim(),
+      'weight': weight.trim(),
+      'height': height.trim(),
+      'length': length.trim(),
+      'width': width.trim(),
+      'nama_barang': nama_barang.trim(),
+      'tipe_barang': tipe_barang_id.trim(),
+      'process_type': processType.trim(),
     };
 
-    if (id_barang != null) {
-      fields['id_barang'] = id_barang;
+    if (barang_id != null) {
+      fields['nama_barang'] =
+          barang_id.trim(); // Assuming barang_id should also be trimmed
     }
     if (container_number != null) {
-      fields['container_number'] = container_number;
+      fields['container_number'] = container_number.trim();
     }
 
     // Menggunakan _baseUrl untuk membangun URL
@@ -161,7 +164,7 @@ class LCLService {
             width: width,
             nama_barang: nama_barang,
             tipe_barang_id: tipe_barang_id,
-            id_barang: id_barang,
+            barang_id: barang_id,
             processType: processType,
             container_number: container_number,
           );
@@ -197,8 +200,8 @@ class LCLService {
         url,
         body: {
           'token': token,
-          'number_lpb_item': numberLpbItem,
-          'container_number': containerNumber,
+          'number_lpb_item': numberLpbItem.trim(), // Trim here
+          'container_number': containerNumber.trim(), // Trim here
         },
       );
 

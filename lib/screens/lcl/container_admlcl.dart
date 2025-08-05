@@ -8,16 +8,40 @@ import '../../services/lcl_service.dart';
 // Model untuk Sugesti Barang
 class ItemSuggestion {
   final String id;
-  final String name;
+  final String originalName; // Store the full original name
+  final String packaging; // First word
+  final String cleanedName; // Second word onwards
   final String type;
 
-  ItemSuggestion({required this.id, required this.name, required this.type});
+  ItemSuggestion({
+    required this.id,
+    required this.originalName,
+    required this.packaging,
+    required this.cleanedName,
+    required this.type,
+  });
 
   factory ItemSuggestion.fromJson(Map<String, dynamic> json) {
+    String fullNamaBarang = (json['nama_barang'] ?? '').toString().trim();
+    String firstWord = '';
+    String restOfName = fullNamaBarang;
+
+    int firstSpaceIndex = fullNamaBarang.indexOf(' ');
+    if (firstSpaceIndex != -1) {
+      firstWord = fullNamaBarang.substring(0, firstSpaceIndex).trim();
+      restOfName = fullNamaBarang.substring(firstSpaceIndex + 1).trim();
+    } else {
+      // If no space, the whole string is the "first word" (packaging)
+      firstWord = fullNamaBarang;
+      restOfName = ''; // No rest of the name
+    }
+
     return ItemSuggestion(
-      id: json['id_barang'] ?? '',
-      name: json['nama_barang'] ?? '',
-      type: json['tipe_barang'] ?? '',
+      id: (json['id_barang'] ?? '').toString().trim(),
+      originalName: fullNamaBarang,
+      packaging: firstWord,
+      cleanedName: restOfName,
+      type: (json['tipe_barang'] ?? '').toString().trim(),
     );
   }
 }
@@ -31,8 +55,8 @@ class ContainerSuggestion {
 
   factory ContainerSuggestion.fromJson(Map<String, dynamic> json) {
     return ContainerSuggestion(
-      id: json['container_id'] ?? '',
-      number: json['container_number'] ?? '',
+      id: (json['container_id'] ?? '').toString().trim(),
+      number: (json['container_number'] ?? '').toString().trim(),
     );
   }
 }
@@ -68,7 +92,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
   List<ItemSuggestion> _itemSuggestions = [];
   bool _isFetchingSuggestions = false;
-  Timer? _debounce;
   bool _isSuggestionBoxVisible = false;
 
   List<Map<String, dynamic>> _tipeBarangList = [];
@@ -81,6 +104,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
   List<ContainerSuggestion> _allContainers = [];
   List<ItemSuggestion> _allItems = [];
 
+  FocusNode _panjangFocusNode = FocusNode();
+  FocusNode _lebarFocusNode = FocusNode();
+  FocusNode _tinggiFocusNode = FocusNode();
+  FocusNode _beratFocusNode = FocusNode();
+
   final _formKey = GlobalKey<FormState>();
 
   // --- STATE UNTUK KONTAINER ---
@@ -88,9 +116,14 @@ class _ContainerScreenState extends State<ContainerScreen> {
   String? _selectedContainerNumber;
   List<ContainerSuggestion> _containerSuggestions = [];
   bool _isFetchingContainers = false;
-  Timer? _containerDebounce;
   // --- NEW ---: State to check if a container has been selected.
   bool _isContainerSelected = false;
+
+  // NEW: State variables for packaging
+  String? _selectedPackaging;
+  // DIUBAH: Daftar kemasan yang diizinkan secara manual
+  final List<String> _allowedPackagingTypes = ['Alat', 'Pack', 'Drum'];
+  List<String> _uniquePackagingTypes = [];
 
   @override
   void initState() {
@@ -98,6 +131,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
     _loadTipeBarang();
     _loadAllContainers(); // Load semua container
     _loadAllItems(); // Load semua barang
+    // Inisialisasi _uniquePackagingTypes dengan daftar yang diizinkan
+    _uniquePackagingTypes = _allowedPackagingTypes;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showContainerSelectionModal();
     });
@@ -107,8 +142,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
   void dispose() {
     _clearContainerSelection();
     _controller.dispose();
-    _debounce?.cancel();
-    _containerDebounce?.cancel();
     _noLpbController.dispose();
     _kodebarangController.dispose();
     _urutanbarangController.dispose();
@@ -119,6 +152,10 @@ class _ContainerScreenState extends State<ContainerScreen> {
     _tinggiController.dispose();
     _volumeController.dispose();
     _beratController.dispose();
+    _panjangFocusNode.dispose();
+    _lebarFocusNode.dispose();
+    _tinggiFocusNode.dispose();
+    _beratFocusNode.dispose();
     _containerSearchController.dispose();
     super.dispose();
   }
@@ -152,6 +189,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
       setState(() {
         _allItems =
             itemsData.map((item) => ItemSuggestion.fromJson(item)).toList();
+        // DIUBAH: _uniquePackagingTypes sudah diinisialisasi di initState dengan _allowedPackagingTypes
+        // Tidak perlu diekstrak dari _allItems lagi jika ingin fixed list.
       });
     }
     setState(() => _isFetchingSuggestions = false);
@@ -176,7 +215,24 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
   // Fungsi filter lokal barang
   void _filterItemSuggestions(String query) {
-    if (query.length < 3) {
+    List<ItemSuggestion> currentFilterPool = _allItems;
+
+    // 1. Filter by selected packaging first
+    if (_selectedPackaging != null && _selectedPackaging!.isNotEmpty) {
+      currentFilterPool =
+          currentFilterPool
+              .where(
+                (item) =>
+                    item.packaging.toLowerCase() ==
+                    _selectedPackaging!.toLowerCase(),
+              )
+              .toList();
+    }
+
+    // 2. Then filter by the query on cleanedName (second word onwards)
+    if (query.length < 3 &&
+        (_selectedPackaging == null || _selectedPackaging!.isEmpty)) {
+      // Adjusted condition
       setState(() {
         _itemSuggestions = [];
         _isSuggestionBoxVisible = false;
@@ -185,13 +241,14 @@ class _ContainerScreenState extends State<ContainerScreen> {
     }
 
     final filtered =
-        _allItems.where((item) {
-          return item.name.toLowerCase().contains(query.toLowerCase());
+        currentFilterPool.where((item) {
+          return item.cleanedName.toLowerCase().contains(query.toLowerCase());
         }).toList();
 
     setState(() {
       _itemSuggestions = filtered;
-      _isSuggestionBoxVisible = true;
+      _isSuggestionBoxVisible =
+          filtered.isNotEmpty; // Only show if there are suggestions
     });
   }
 
@@ -277,9 +334,9 @@ class _ContainerScreenState extends State<ContainerScreen> {
   // --- FUNGSI HELPER LAINNYA ---
 
   void _hitungVolume() {
-    final double? panjang = double.tryParse(_panjangController.text);
-    final double? lebar = double.tryParse(_lebarController.text);
-    final double? tinggi = double.tryParse(_tinggiController.text);
+    final double? panjang = double.tryParse(_panjangController.text.trim());
+    final double? lebar = double.tryParse(_lebarController.text.trim());
+    final double? tinggi = double.tryParse(_tinggiController.text.trim());
 
     if (panjang != null && lebar != null && tinggi != null) {
       _volumeController.text = (panjang * lebar * tinggi / 1000000)
@@ -320,9 +377,10 @@ class _ContainerScreenState extends State<ContainerScreen> {
       _isLoading = true;
       _itemSuggestions = [];
       _isSuggestionBoxVisible = false;
-      _selectedTipeId = null;
+      _selectedTipeId = null; // Reset to null
       _selectedBarangId = null;
       _isNamaFromSuggestion = false;
+      _selectedPackaging = null; // Reset packaging
       _formKey.currentState?.reset();
     });
 
@@ -341,30 +399,76 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
       final data = lpbData['data'] as Map<String, dynamic>;
 
-      _noLpbController.text = data['nomor_lpb'] ?? '';
-      _kodebarangController.text = data['code_barang'] ?? '';
-      _urutanbarangController.text = data['number_item'] ?? '';
-      _totalbarangController.text = data['total_barang'] ?? '';
-      _namaController.text = data['nama_barang'] ?? '';
-      _panjangController.text = (data['length'] ?? 0).toString();
-      _lebarController.text = (data['width'] ?? 0).toString();
-      _tinggiController.text = (data['height'] ?? 0).toString();
-      _beratController.text = (data['weight'] ?? 0).toString();
+      _noLpbController.text = (data['nomor_lpb'] ?? '').toString().trim();
+      _kodebarangController.text =
+          (data['code_barang'] ?? '').toString().trim();
+      _urutanbarangController.text =
+          (data['number_item'] ?? '').toString().trim();
+      _totalbarangController.text =
+          (data['total_barang'] ?? '').toString().trim();
+
+      // Parse the full name from scan to separate packaging and cleaned name
+      String fullScannedName = (data['nama_barang'] ?? '').toString().trim();
+      String scannedPackaging = '';
+      String scannedCleanedName = fullScannedName;
+
+      int firstSpaceIndex = fullScannedName.indexOf(' ');
+      if (firstSpaceIndex != -1) {
+        scannedPackaging = fullScannedName.substring(0, firstSpaceIndex).trim();
+        scannedCleanedName =
+            fullScannedName.substring(firstSpaceIndex + 1).trim();
+      } else {
+        scannedPackaging = fullScannedName;
+        scannedCleanedName = '';
+      }
+
+      _namaController.text = scannedCleanedName; // Show only the cleaned name
+      _panjangController.text = (data['length'] ?? 0).toString().trim();
+      _lebarController.text = (data['width'] ?? 0).toString().trim();
+      _tinggiController.text = (data['height'] ?? 0).toString().trim();
+      _beratController.text = (data['weight'] ?? 0).toString().trim();
       _hitungVolume();
 
-      final String tipeBarangFromScan = data['tipe_barang'] ?? '';
-      if (tipeBarangFromScan.isNotEmpty && _tipeBarangList.isNotEmpty) {
+      setState(() {
+        _selectedBarangId = data['id_barang']?.toString().trim();
+        _isNamaFromSuggestion =
+            true; // Set this true because name comes from scan
+
+        // Set packaging from scan, ensure it's one of the allowed types or null
+        _selectedPackaging =
+            _allowedPackagingTypes.contains(scannedPackaging)
+                ? scannedPackaging
+                : null;
+      });
+
+      // DIUBAH: Perbaiki logic pemilihan Tipe Barang
+      final String tipeBarangNameFromScan =
+          (data['tipe_barang'] ?? '').toString().trim();
+      if (tipeBarangNameFromScan.isNotEmpty && _tipeBarangList.isNotEmpty) {
+        // Cari tipe barang berdasarkan NAMA, lalu ambil ID-nya
         final matchingTipe = _tipeBarangList.firstWhere(
-          (tipe) => tipe['name'] == tipeBarangFromScan,
+          (tipe) =>
+              (tipe['name'] ?? '').toString().trim().toLowerCase() ==
+              tipeBarangNameFromScan
+                  .toLowerCase(), // Tambah toLowerCase() untuk case-insensitive
           orElse: () => <String, dynamic>{},
         );
 
         if (matchingTipe.isNotEmpty) {
           setState(() {
-            _selectedTipeId = matchingTipe['tipe_id'];
-            _isNamaFromSuggestion = true;
+            _selectedTipeId = (matchingTipe['tipe_id'] ?? '').toString().trim();
+          });
+        } else {
+          // Jika tidak ada kecocokan nama, set _selectedTipeId ke null
+          setState(() {
+            _selectedTipeId = null;
           });
         }
+      } else {
+        // Jika tipeBarangNameFromScan kosong atau _tipeBarangList kosong, set _selectedTipeId ke null
+        setState(() {
+          _selectedTipeId = null;
+        });
       }
 
       showMaterialModalBottomSheet(
@@ -410,7 +514,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Input Data Barang (Container)',
+                      'Input Data Barang',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -422,9 +526,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
                 Text(
-                  'Kontainer: ${_selectedContainerNumber ?? 'Tidak ada'}',
+                  'Container: ${_selectedContainerNumber ?? 'Error'}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -439,24 +542,71 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   children: [
                     Expanded(flex: 1, child: Container()),
                     Expanded(
-                      flex: 2,
+                      flex: 1,
                       child: _buildReadOnlyField(
                         'Urutan',
                         _urutanbarangController,
+                        textAlign: TextAlign.center,
+                        fontSize: 16, // Ukuran font diperbesar
                       ),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('/', style: TextStyle(fontSize: 20)),
+                      child: Text(
+                        '/',
+                        style: TextStyle(
+                          fontSize: 24,
+                        ), // Diperbesar dari 20 ke 24
+                      ),
                     ),
                     Expanded(
-                      flex: 2,
+                      flex: 1,
                       child: _buildReadOnlyField(
                         'Total',
                         _totalbarangController,
+                        textAlign: TextAlign.center,
+                        fontSize: 16, // Ukuran font diperbesar
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                // NEW: Kemasan Dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedPackaging,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    // DIUBAH: Hapus filled dan fillColor
+                    labelText: 'Kemasan',
+                    border: OutlineInputBorder(),
+                  ),
+                  hint: const Text('Pilih Kemasan'),
+                  items:
+                      _uniquePackagingTypes.map((packaging) {
+                        return DropdownMenuItem<String>(
+                          value: packaging,
+                          child: Text(packaging),
+                        );
+                      }).toList(),
+                  onChanged: (String? newValue) {
+                    // DIUBAH: Always enabled
+                    setState(() {
+                      _selectedPackaging = newValue;
+                      _filterItemSuggestions(
+                        _namaController.text,
+                      ); // Re-filter suggestions based on new packaging
+                      // Clear existing item selection if packaging changes and it's not from scan
+                      if (!_isNamaFromSuggestion) {
+                        _selectedBarangId = null;
+                        _selectedTipeId = null;
+                      }
+                    });
+                  },
+                  validator:
+                      (value) =>
+                          (value == null || value.isEmpty)
+                              ? 'Pilih kemasan barang'
+                              : null,
                 ),
                 const SizedBox(height: 10),
                 Column(
@@ -464,20 +614,20 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   children: [
                     TextFormField(
                       controller: _namaController,
-                      // HAPUS onChanged dari sini
-                      decoration: InputDecoration(
-                        labelText: 'Nama Barang', // Tambahkan label agar jelas
-                        border: const OutlineInputBorder(),
-                        // Tambahkan IconButton di sebelah kanan
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: () {
-                            // Panggil filter HANYA saat tombol ditekan
-                            // Pastikan keyboard tertutup agar tidak mengganggu view
-                            FocusScope.of(context).unfocus();
-                            _filterItemSuggestions(_namaController.text);
-                          },
-                        ),
+                      enabled: true, // DIUBAH: Always enabled
+                      onChanged: (value) {
+                        _filterItemSuggestions(value);
+
+                        setState(() {
+                          _isNamaFromSuggestion = false;
+                          _selectedBarangId = null;
+                          _selectedTipeId = null;
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        // DIUBAH: Hapus filled dan fillColor
+                        labelText: 'Nama Barang',
+                        border: OutlineInputBorder(),
                       ),
                       validator:
                           (value) =>
@@ -485,7 +635,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                   ? 'Nama Barang tidak boleh kosong'
                                   : null,
                     ),
-                    // Bagian ini tidak perlu diubah, akan bekerja otomatis
                     if (_isSuggestionBoxVisible) _buildItemSuggestionList(),
                   ],
                 ),
@@ -495,27 +644,27 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     : DropdownButtonFormField<String>(
                       value: _selectedTipeId,
                       isExpanded: true,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
+                        // DIUBAH: Hapus filled dan fillColor
                         labelText: 'Tipe Barang',
-                        border: const OutlineInputBorder(),
-                        filled: true,
-                        fillColor:
-                            _isNamaFromSuggestion ? Colors.grey[200] : null,
+                        border: OutlineInputBorder(),
                       ),
                       hint: const Text('Pilih Tipe'),
                       items:
                           _tipeBarangList.map((tipe) {
                             return DropdownMenuItem<String>(
-                              value: tipe['tipe_id'],
-                              child: Text(tipe['name'] ?? 'Tanpa Nama'),
+                              value: (tipe['tipe_id'] ?? '').toString().trim(),
+                              child: Text(
+                                (tipe['name'] ?? 'Tanpa Nama')
+                                    .toString()
+                                    .trim(),
+                              ),
                             );
                           }).toList(),
-                      onChanged:
-                          _isNamaFromSuggestion
-                              ? null
-                              : (String? newValue) {
-                                setState(() => _selectedTipeId = newValue);
-                              },
+                      onChanged: (String? newValue) {
+                        // DIUBAH: Always enabled
+                        setState(() => _selectedTipeId = newValue);
+                      },
                       validator:
                           (value) =>
                               (value == null || value.isEmpty)
@@ -528,6 +677,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _panjangController,
+                        focusNode: _panjangFocusNode,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).requestFocus(_lebarFocusNode);
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Panjang (cm)',
                           border: OutlineInputBorder(),
@@ -538,7 +692,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                             (v) =>
                                 (v == null ||
                                         v.isEmpty ||
-                                        double.tryParse(v) == null)
+                                        double.tryParse(v.trim()) == null)
                                     ? 'Angka valid'
                                     : null,
                       ),
@@ -547,6 +701,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _lebarController,
+                        focusNode: _lebarFocusNode,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).requestFocus(_tinggiFocusNode);
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Lebar (cm)',
                           border: OutlineInputBorder(),
@@ -557,7 +716,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                             (v) =>
                                 (v == null ||
                                         v.isEmpty ||
-                                        double.tryParse(v) == null)
+                                        double.tryParse(v.trim()) == null)
                                     ? 'Angka valid'
                                     : null,
                       ),
@@ -566,6 +725,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _tinggiController,
+                        focusNode: _tinggiFocusNode,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).requestFocus(_beratFocusNode);
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Tinggi (cm)',
                           border: OutlineInputBorder(),
@@ -576,7 +740,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                             (v) =>
                                 (v == null ||
                                         v.isEmpty ||
-                                        double.tryParse(v) == null)
+                                        double.tryParse(v.trim()) == null)
                                     ? 'Angka valid'
                                     : null,
                       ),
@@ -586,6 +750,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _beratController,
+                  focusNode: _beratFocusNode,
+                  textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'Berat (kg)',
                     border: OutlineInputBorder(),
@@ -593,7 +759,9 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   keyboardType: TextInputType.number,
                   validator:
                       (v) =>
-                          (v == null || v.isEmpty || double.tryParse(v) == null)
+                          (v == null ||
+                                  v.isEmpty ||
+                                  double.tryParse(v.trim()) == null)
                               ? 'Angka valid'
                               : null,
                 ),
@@ -628,15 +796,41 @@ class _ContainerScreenState extends State<ContainerScreen> {
                       }
 
                       try {
+                        String namaBarangToSend;
+                        if (_isNamaFromSuggestion &&
+                            _selectedBarangId != null) {
+                          // If selected from suggestions, reconstruct original name from the stored ItemSuggestion
+                          final selectedItem = _allItems.firstWhere(
+                            (element) => element.id == _selectedBarangId,
+                          );
+                          namaBarangToSend = selectedItem.originalName;
+                        } else {
+                          // If user typed, combine selected packaging and typed cleaned name
+                          // Ensure packaging is selected if not from suggestion
+                          if (_selectedPackaging == null ||
+                              _selectedPackaging!.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Mohon pilih kemasan barang.'),
+                              ),
+                            );
+                            setState(() => _isLoading = false);
+                            return;
+                          }
+                          namaBarangToSend =
+                              '${_selectedPackaging!} ${_namaController.text}'
+                                  .trim();
+                        }
+
                         final success = await _lclService.saveLPBDetail(
-                          number_lpb_item: _kodebarangController.text,
-                          weight: _beratController.text,
-                          height: _tinggiController.text,
-                          length: _panjangController.text,
-                          width: _lebarController.text,
-                          nama_barang: _namaController.text,
+                          number_lpb_item: _kodebarangController.text.trim(),
+                          weight: _beratController.text.trim(),
+                          height: _tinggiController.text.trim(),
+                          length: _panjangController.text.trim(),
+                          width: _lebarController.text.trim(),
+                          nama_barang: namaBarangToSend,
                           tipe_barang_id: _selectedTipeId!,
-                          id_barang: _selectedBarangId,
+                          barang_id: _selectedBarangId,
                           processType: 'container',
                           container_number: containerId, // KIRIM ID KONTAINER
                         );
@@ -658,7 +852,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                     TextButton(
                                       onPressed:
                                           () => Navigator.of(context).pop(),
-                                      child: Text('OK'),
+                                      child: const Text('OK'),
                                     ),
                                   ],
                                 ),
@@ -670,7 +864,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                             context: context,
                             builder:
                                 (context) => AlertDialog(
-                                  title: Text('Error'),
+                                  title: const Text('Error'),
                                   content: Text(
                                     'Terjadi kesalahan: ${e.toString()}',
                                   ),
@@ -678,7 +872,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                     TextButton(
                                       onPressed:
                                           () => Navigator.of(context).pop(),
-                                      child: Text('OK'),
+                                      child: const Text('OK'),
                                     ),
                                   ],
                                 ),
@@ -707,9 +901,16 @@ class _ContainerScreenState extends State<ContainerScreen> {
     );
   }
 
-  Widget _buildReadOnlyField(String label, TextEditingController controller) {
+  Widget _buildReadOnlyField(
+    String label,
+    TextEditingController controller, {
+    TextAlign textAlign = TextAlign.left,
+    double fontSize = 14,
+  }) {
     return TextFormField(
       controller: controller,
+      textAlign: textAlign,
+      style: TextStyle(fontSize: fontSize), // Tambahkan style untuk font size
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
@@ -727,7 +928,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(4),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
@@ -747,38 +948,45 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   final item = _itemSuggestions[index];
                   return ListTile(
                     dense: true,
-                    title: Text(item.name),
-                    subtitle: Text(item.type),
-                    onTap: () async {
-                      // 1. Hilangkan fokus dari TextField
-                      FocusScope.of(context).unfocus();
-
-                      // 2. Tutup suggestion box dan update form
+                    title: Text(item.cleanedName), // Display cleaned name
+                    subtitle: Text(
+                      '${item.packaging} - ${item.type}',
+                    ), // Display packaging and type for clarity
+                    onTap: () {
                       setState(() {
-                        _namaController.text = item.name;
+                        _namaController.text = item.cleanedName;
                         _selectedBarangId = item.id;
+                        _selectedPackaging =
+                            item.packaging; // Set packaging from selected item
 
+                        // Cari tipe barang berdasarkan NAMA, lalu ambil ID-nya
                         final matchingTipe = _tipeBarangList.firstWhere(
-                          (tipe) => tipe['name'] == item.type,
+                          (tipe) =>
+                              (tipe['name'] ?? '')
+                                  .toString()
+                                  .trim()
+                                  .toLowerCase() ==
+                              item.type
+                                  .trim()
+                                  .toLowerCase(), // Tambah toLowerCase()
                           orElse: () => <String, dynamic>{},
                         );
 
                         if (matchingTipe.isNotEmpty) {
-                          _selectedTipeId = matchingTipe['tipe_id'];
+                          _selectedTipeId =
+                              (matchingTipe['tipe_id'] ?? '').toString().trim();
                         } else {
-                          _selectedTipeId = null;
+                          _selectedTipeId =
+                              null; // Set to null if no matching ID found
                         }
 
                         _isNamaFromSuggestion = true;
-                        _isSuggestionBoxVisible = false; // <- nutup box
+                        _isSuggestionBoxVisible = false;
                       });
 
-                      // 3. Delay untuk memastikan UI settle
-                      await Future.delayed(const Duration(milliseconds: 100));
-
-                      // 4. Force refresh suggestion list kosong biar bener-bener ilang
-                      setState(() {
-                        _itemSuggestions = [];
+                      // Delay kecil untuk unfocus agar keyboard dan suggestion benar-benar tertutup
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        FocusScope.of(context).unfocus();
                       });
                     },
                   );
@@ -822,7 +1030,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   children: [
                     Text(
                       'Container : ${_selectedContainerNumber ?? '...'}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
