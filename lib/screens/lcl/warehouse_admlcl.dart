@@ -91,7 +91,17 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   // NEW: State variables for packaging
   String? _selectedPackaging;
   // DIUBAH: Daftar kemasan yang diizinkan secara manual
-  final List<String> _allowedPackagingTypes = ['Alat', 'Pack', 'Drum'];
+  final List<String> _allowedPackagingTypes = [
+    'Dus',
+    'Pack',
+    'Ball',
+    'Peti',
+    'Jerigen',
+    'Drum',
+    'Roll',
+    'Ikat',
+    'Batang',
+  ];
   List<String> _uniquePackagingTypes = [];
 
   FocusNode _panjangFocusNode = FocusNode();
@@ -330,7 +340,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         enableDrag: false,
         builder: (context) => _buildInputModal(context),
       ).whenComplete(() {
-        _controller.start();
         _scannedBarcode = null;
       });
     } catch (e) {
@@ -687,7 +696,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                     ),
                                   ],
                                 ),
-                          );
+                          ).then((_) {
+                            if (mounted) {
+                              _controller
+                                  .start(); // Aktifkan scanner setelah dialog tertutup
+                            }
+                          });
                         }
                       } catch (e) {
                         if (mounted) {
@@ -710,7 +724,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                     ),
                                   ],
                                 ),
-                          );
+                          ).then((_) {
+                            if (mounted) {
+                              _controller
+                                  .start(); // Aktifkan scanner setelah dialog tertutup
+                            }
+                          });
                         }
                       } finally {
                         if (mounted) setState(() => _isLoading = false);

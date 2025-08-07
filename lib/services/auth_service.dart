@@ -5,9 +5,12 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 // import 'package:device_info_plus/device_info_plus.dart';
 
 class AuthService {
-  // final String baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api/login';
-  final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
+  // PRODUCTION
   // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
+  // DEVELOPMENT
+  final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
+  // final String baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api/login';
+  // final String baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api/login';
 
   // Future<String> _getDeviceImei() async {
   //   final deviceInfo = DeviceInfoPlugin();

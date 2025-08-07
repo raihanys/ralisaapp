@@ -208,10 +208,17 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       setState(() => _isLoading = false);
 
       if (lpbData == null || lpbData['data'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data barang tidak ditemukan')),
-        );
-        _controller.start();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+              const SnackBar(content: Text('Data barang tidak ditemukan')),
+            )
+            .closed
+            .then((_) {
+              if (mounted) {
+                _controller
+                    .start(); // Aktifkan scanner setelah snackbar tertutup
+              }
+            });
         _scannedBarcode = null;
         _codeBarang = null;
         return;
@@ -226,15 +233,20 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
         builder: (context) => _buildConfirmationDialog(context),
       );
 
-      _controller.start();
+      // Hapus ini karena sudah dihandle di dalam _buildConfirmationDialog
+      // _controller.start();
       _scannedBarcode = null;
       _codeBarang = null;
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      _controller.start();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')))
+          .closed
+          .then((_) {
+            if (mounted) {
+              _controller.start(); // Aktifkan scanner setelah snackbar tertutup
+            }
+          });
       _scannedBarcode = null;
       _codeBarang = null;
     }
@@ -256,7 +268,13 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pop(context);
+            if (mounted) {
+              _controller
+                  .start(); // Aktifkan scanner setelah dialog konfirmasi dibatalkan
+            }
+          },
           child: const Text('Batal'),
         ),
         TextButton(
@@ -267,26 +285,42 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
             final containerId = prefs.getString('container_id');
 
             if (containerId == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
-                  ),
-                ),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
+                      ),
+                    ),
+                  )
+                  .closed
+                  .then((_) {
+                    if (mounted) {
+                      _controller
+                          .start(); // Aktifkan scanner setelah snackbar tertutup
+                    }
+                  });
               setState(() => _isLoading = false);
               Navigator.pop(context);
               return;
             }
 
             if (_scannedBarcode == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Barcode barang tidak ditemukan. Mohon scan ulang.',
-                  ),
-                ),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Barcode barang tidak ditemukan. Mohon scan ulang.',
+                      ),
+                    ),
+                  )
+                  .closed
+                  .then((_) {
+                    if (mounted) {
+                      _controller
+                          .start(); // Aktifkan scanner setelah snackbar tertutup
+                    }
+                  });
               setState(() => _isLoading = false);
               Navigator.pop(context);
               return;
@@ -299,7 +333,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
               );
 
               if (mounted) {
-                Navigator.pop(context);
+                Navigator.pop(context); // Tutup dialog konfirmasi
                 showDialog(
                   context: context,
                   builder:
@@ -314,6 +348,10 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                           TextButton(
                             onPressed: () {
                               Navigator.of(context).pop();
+                              if (mounted) {
+                                _controller
+                                    .start(); // Aktifkan scanner setelah dialog status tertutup
+                              }
                             },
                             child: const Text('OK'),
                           ),
@@ -323,7 +361,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
               }
             } catch (e) {
               if (mounted) {
-                Navigator.pop(context);
+                Navigator.pop(context); // Tutup dialog konfirmasi
                 showDialog(
                   context: context,
                   builder:
@@ -332,7 +370,13 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                         content: Text('Terjadi kesalahan: ${e.toString()}'),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              if (mounted) {
+                                _controller
+                                    .start(); // Aktifkan scanner setelah dialog error tertutup
+                              }
+                            },
                             child: const Text('OK'),
                           ),
                         ],

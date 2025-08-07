@@ -122,7 +122,17 @@ class _ContainerScreenState extends State<ContainerScreen> {
   // NEW: State variables for packaging
   String? _selectedPackaging;
   // DIUBAH: Daftar kemasan yang diizinkan secara manual
-  final List<String> _allowedPackagingTypes = ['Alat', 'Pack', 'Drum'];
+  final List<String> _allowedPackagingTypes = [
+    'Dus',
+    'Pack',
+    'Ball',
+    'Peti',
+    'Jerigen',
+    'Drum',
+    'Roll',
+    'Ikat',
+    'Batang',
+  ];
   List<String> _uniquePackagingTypes = [];
 
   @override
@@ -477,7 +487,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
         enableDrag: false,
         builder: (context) => _buildInputModal(context),
       ).whenComplete(() {
-        _controller.start();
         _scannedBarcode = null;
       });
     } catch (e) {
@@ -837,7 +846,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
                         if (mounted) {
                           Navigator.of(context).pop();
-
                           showDialog(
                             context: context,
                             builder:
@@ -856,7 +864,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                     ),
                                   ],
                                 ),
-                          );
+                          ).then((_) {
+                            if (mounted) {
+                              _controller
+                                  .start(); // Aktifkan scanner setelah dialog tertutup
+                            }
+                          });
                         }
                       } catch (e) {
                         if (mounted) {
@@ -876,7 +889,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                     ),
                                   ],
                                 ),
-                          );
+                          ).then((_) {
+                            if (mounted) {
+                              _controller
+                                  .start(); // Aktifkan scanner setelah dialog tertutup
+                            }
+                          });
                         }
                       } finally {
                         if (mounted) setState(() => _isLoading = false);
