@@ -110,7 +110,6 @@ class LCLService {
     required String nama_barang,
     required String tipe_barang_id,
     String? barang_id,
-    required String processType,
     String? container_number,
   }) async {
     final token = await _authService.getValidToken();
@@ -129,7 +128,6 @@ class LCLService {
       'width': width.trim(),
       'nama_barang': nama_barang.trim(),
       'tipe_barang': tipe_barang_id.trim(),
-      'process_type': processType.trim(),
     };
 
     if (barang_id != null) {
@@ -166,7 +164,6 @@ class LCLService {
             nama_barang: nama_barang,
             tipe_barang_id: tipe_barang_id,
             barang_id: barang_id,
-            processType: processType,
             container_number: container_number,
           );
         }

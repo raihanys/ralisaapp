@@ -349,10 +349,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
     final double? tinggi = double.tryParse(_tinggiController.text.trim());
 
     if (panjang != null && lebar != null && tinggi != null) {
-      _volumeController.text = (panjang * lebar * tinggi / 1000000)
-          .toStringAsFixed(2);
+      double volume = panjang * lebar * tinggi / 1000000;
+      _volumeController.text = volume.toStringAsFixed(
+        3,
+      ); // 3 angka di belakang koma
     } else {
-      _volumeController.text = '0';
+      _volumeController.text = '0.000';
     }
   }
 
@@ -531,7 +533,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (mounted) {
+                          _controller.start(); // Aktifkan scanner kembali
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -840,7 +847,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
                           nama_barang: namaBarangToSend,
                           tipe_barang_id: _selectedTipeId!,
                           barang_id: _selectedBarangId,
-                          processType: 'container',
                           container_number: containerId, // KIRIM ID KONTAINER
                         );
 
