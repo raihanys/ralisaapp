@@ -205,10 +205,10 @@ class _MainWarehouseState extends State<MainWarehouse> {
         String statusText;
         Color statusColor;
         if (item['container_id'] == null) {
-          statusText = "in Warehouse";
+          statusText = "Warehouse";
           statusColor = Colors.green[100]!;
         } else {
-          statusText = "in Container";
+          statusText = "Container";
           statusColor = Colors.blue[100]!;
         }
 
@@ -249,7 +249,7 @@ class _MainWarehouseState extends State<MainWarehouse> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
-                          fontSize: 10,
+                          fontSize: 12,
                         ),
                       ),
                     ),

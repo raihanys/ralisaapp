@@ -197,11 +197,11 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                         child: SingleChildScrollView(
                           child: Table(
                             columnWidths: const {
-                              0: FixedColumnWidth(40),
+                              0: FixedColumnWidth(60),
                               1: FixedColumnWidth(120),
-                              2: FixedColumnWidth(40),
-                              3: FixedColumnWidth(40),
-                              4: FixedColumnWidth(40),
+                              2: FixedColumnWidth(60),
+                              3: FixedColumnWidth(60),
+                              4: FixedColumnWidth(60),
                               5: FixedColumnWidth(60),
                               6: FixedColumnWidth(60),
                               7: FixedColumnWidth(60),
@@ -254,7 +254,9 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                     _BodyCell(
                                       item['weight']?.toString() ?? '-',
                                     ),
-                                    Center(
+                                    Container(
+                                      height: 72,
+                                      alignment: Alignment.center,
                                       child: Checkbox(
                                         value: _checkedItems[index],
                                         onChanged: (value) {
@@ -264,49 +266,45 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                         },
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0,
-                                      ), // atur sesuai selera
-                                      child: Align(
-                                        alignment: Alignment.center,
-                                        child: ElevatedButton(
-                                          onPressed: () {
-                                            final code =
-                                                item['barang_kode'] ?? '';
-                                            if (code.isNotEmpty) {
-                                              setState(() {
-                                                if (_notesController
-                                                    .text
-                                                    .isNotEmpty) {
-                                                  _notesController.text += ', ';
-                                                }
-                                                _notesController.text += code;
-                                              });
-                                            }
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
-                                            minimumSize: Size.zero,
-                                            tapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
+                                    Container(
+                                      height: 72,
+                                      alignment: Alignment.center,
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          final code =
+                                              item['barang_kode'] ?? '';
+                                          if (code.isNotEmpty) {
+                                            setState(() {
+                                              if (_notesController
+                                                  .text
+                                                  .isNotEmpty) {
+                                                _notesController.text += ', ';
+                                              }
+                                              _notesController.text += code;
+                                            });
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
                                             ),
                                           ),
-                                          child: const Text(
-                                            '+',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
+                                        ),
+                                        child: const Text(
+                                          '+',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
                                           ),
                                         ),
                                       ),
@@ -383,9 +381,13 @@ class _HeaderCell extends StatelessWidget {
   const _HeaderCell(this.text, {this.alignLeft = false});
   final String text;
   final bool alignLeft;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(8.0),
+  Widget build(BuildContext context) => Container(
+    height: 48, // bikin tinggi seragam
+    alignment:
+        alignLeft ? Alignment.centerLeft : Alignment.center, // middle align
+    padding: const EdgeInsets.symmetric(horizontal: 8.0),
     child: Text(
       text,
       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -398,9 +400,13 @@ class _BodyCell extends StatelessWidget {
   const _BodyCell(this.text, {this.alignLeft = false});
   final String text;
   final bool alignLeft;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(8.0),
+  Widget build(BuildContext context) => Container(
+    height: 72, // tinggi seragam biar center rapi
+    alignment:
+        alignLeft ? Alignment.centerLeft : Alignment.center, // middle align
+    padding: const EdgeInsets.symmetric(horizontal: 8.0),
     child: Text(text, textAlign: alignLeft ? TextAlign.left : TextAlign.center),
   );
 }
