@@ -376,6 +376,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
     }
   }
 
+  String _nullIfZero(dynamic value) {
+    if (value == null) return '';
+    if (value.toString().trim() == '0') return '';
+    return value.toString().trim();
+  }
+
   Future<void> _showInputModal(
     BuildContext context,
     String scannedBarcode,
@@ -435,10 +441,12 @@ class _ContainerScreenState extends State<ContainerScreen> {
       }
 
       _namaController.text = scannedCleanedName; // Show only the cleaned name
-      _panjangController.text = (data['length'] ?? 0).toString().trim();
-      _lebarController.text = (data['width'] ?? 0).toString().trim();
-      _tinggiController.text = (data['height'] ?? 0).toString().trim();
-      _beratController.text = (data['weight'] ?? 0).toString().trim();
+
+      _panjangController.text = _nullIfZero(data['length']);
+      _lebarController.text = _nullIfZero(data['width']);
+      _tinggiController.text = _nullIfZero(data['height']);
+      _beratController.text = _nullIfZero(data['weight']);
+
       _hitungVolume();
 
       setState(() {

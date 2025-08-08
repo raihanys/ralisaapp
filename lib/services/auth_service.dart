@@ -8,6 +8,7 @@ class AuthService {
   // PRODUCTION
   // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
   // DEVELOPMENT
+  // final String baseUrl = 'http://192.168.20.25/ralisa_api/index.php/api/login';
   final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
   // final String baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api/login';
   // final String baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api/login';

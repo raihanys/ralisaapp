@@ -201,21 +201,15 @@ class _MainWarehouseState extends State<MainWarehouse> {
       itemBuilder: (context, index) {
         final item = _filteredLpbList[index];
 
-        // Format status text based on received_in value
+        // Format status text based on container_id
         String statusText;
         Color statusColor;
-        switch (item['received_in']?.toLowerCase()) {
-          case 'container':
-            statusText = "in Container";
-            statusColor = Colors.blue[100]!;
-            break;
-          case 'warehouse':
-            statusText = "in Warehouse";
-            statusColor = Colors.green[100]!;
-            break;
-          default:
-            statusText = "Not Processed";
-            statusColor = Colors.orange[100]!;
+        if (item['container_id'] == null) {
+          statusText = "in Warehouse";
+          statusColor = Colors.green[100]!;
+        } else {
+          statusText = "in Container";
+          statusColor = Colors.blue[100]!;
         }
 
         return Card(
