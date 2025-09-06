@@ -533,26 +533,18 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             );
                           }).toList(),
                       onChanged: (String? newValue) {
-                        bool newShowFotoUpload =
-                            newValue == 'Rusak (Dikirim)' ||
-                            newValue == 'Rusak (Tidak Dikirim)';
-                        bool newShowKeteranganField =
-                            newValue == 'Rusak (Dikirim)' ||
-                            newValue == 'Rusak (Tidak Dikirim)' ||
-                            newValue == 'Kurang';
-
-                        setModalState(() {
-                          _selectedCondition = newValue;
-                          _showFotoUpload = newShowFotoUpload;
-                          _showKeteranganField = newShowKeteranganField;
+                        // DIUBAH: Always enabled
+                        setState(() {
+                          _selectedPackaging = newValue;
+                          _filterItemSuggestions(
+                            _namaController.text,
+                          ); // Re-filter suggestions based on new packaging
+                          // Clear existing item selection if packaging changes and it's not from scan
+                          if (!_isNamaFromSuggestion) {
+                            _selectedBarangId = null;
+                            _selectedTipeId = null;
+                          }
                         });
-
-                        // Reset foto jika status tidak memerlukan foto
-                        if (!newShowFotoUpload) {
-                          setState(() {
-                            _fotoFile = null;
-                          });
-                        }
                       },
                       validator:
                           (value) =>
@@ -768,21 +760,26 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                   );
                                 }).toList(),
                             onChanged: (String? newValue) {
+                              bool newShowFotoUpload =
+                                  newValue == 'Rusak (Dikirim)' ||
+                                  newValue == 'Rusak (Tidak Dikirim)';
+                              bool newShowKeteranganField =
+                                  newValue == 'Rusak (Dikirim)' ||
+                                  newValue == 'Rusak (Tidak Dikirim)' ||
+                                  newValue == 'Kurang';
+
                               setModalState(() {
                                 _selectedCondition = newValue;
-                                _showFotoUpload =
-                                    newValue == 'Rusak (Dikirim)' ||
-                                    newValue == 'Rusak (Tidak Dikirim)';
-                                _showKeteranganField =
-                                    newValue == 'Rusak (Dikirim)' ||
-                                    newValue == 'Rusak (Tidak Dikirim)' ||
-                                    newValue == 'Kurang';
-
-                                if (!_showFotoUpload) {
-                                  _fotoFile = null;
-                                  _fotoUrl = null;
-                                }
+                                _showFotoUpload = newShowFotoUpload;
+                                _showKeteranganField = newShowKeteranganField;
                               });
+
+                              // Reset foto jika status tidak memerlukan foto
+                              if (!newShowFotoUpload) {
+                                setState(() {
+                                  _fotoFile = null;
+                                });
+                              }
                             },
                             validator:
                                 (value) =>
@@ -1012,6 +1009,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               statusValue = '3';
                             }
 
+                            bool shouldDeletePhoto =
+                                _fotoFile == null &&
+                                _fotoUrl == null &&
+                                _showFotoUpload;
+
                             final success = await _lclService.saveLPBDetail(
                               number_lpb_item:
                                   _kodebarangController.text.trim(),
@@ -1028,6 +1030,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                       ? _keteranganController.text
                                       : null,
                               foto_terima_barang: _fotoFile,
+                              deleteExistingFoto: shouldDeletePhoto,
                             );
 
                             if (mounted) {

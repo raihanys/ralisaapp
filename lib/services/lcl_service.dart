@@ -122,6 +122,7 @@ class LCLService {
     String? status,
     String? keterangan,
     File? foto_terima_barang,
+    bool deleteExistingFoto = false,
   }) async {
     final token = await _authService.getValidToken();
     if (token == null) {
@@ -153,12 +154,15 @@ class LCLService {
       fields['keterangan'] = keterangan.trim();
     }
 
+    if (deleteExistingFoto) {
+      fields['foto_terima_barang'] = '';
+    }
+
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$_baseUrl/store_lpb_detail'),
     )..fields.addAll(fields);
 
-    // Add image file if exists
     if (foto_terima_barang != null) {
       final fileStream = http.ByteStream(foto_terima_barang.openRead());
       final fileLength = await foto_terima_barang.length();
@@ -173,12 +177,16 @@ class LCLService {
     }
 
     print('Sending request with fields: $fields');
+    if (foto_terima_barang != null) {
+      print('Sending file: ${foto_terima_barang.path}');
+    }
+    if (deleteExistingFoto) {
+      print('Flagging to delete existing photo.');
+    }
 
     try {
       final response = await request.send();
       final resBody = await response.stream.bytesToString();
-
-      // Check if response is HTML (error)
       if (resBody.trim().startsWith('<!DOCTYPE') ||
           resBody.trim().startsWith('<div')) {
         print('Server returned HTML error: $resBody');
@@ -204,6 +212,7 @@ class LCLService {
             status: status,
             keterangan: keterangan,
             foto_terima_barang: foto_terima_barang,
+            deleteExistingFoto: deleteExistingFoto,
           );
         }
       }
