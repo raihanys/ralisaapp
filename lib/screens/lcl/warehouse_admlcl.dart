@@ -196,10 +196,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     setState(() => _isFetchingSuggestions = false);
   }
 
-  void _filterItemSuggestions(String query) {
+  void _filterItemSuggestions(String query, [StateSetter? modalSetState]) {
     List<ItemSuggestion> currentFilterPool = _allItems;
 
-    // 1. Filter by selected packaging first
     if (_selectedPackaging != null && _selectedPackaging!.isNotEmpty) {
       currentFilterPool =
           currentFilterPool
@@ -211,28 +210,25 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
               .toList();
     }
 
-    // 2. Then filter by the query on cleanedName (second word onwards)
-    // Adjust minimum query length as needed
-    if (query.length < 3 &&
-        (_selectedPackaging == null || _selectedPackaging!.isEmpty)) {
-      // Adjusted condition
-      setState(() {
-        _itemSuggestions = [];
-        _isSuggestionBoxVisible = false;
-      });
-      return;
-    }
-
     final filtered =
-        currentFilterPool.where((item) {
-          return item.cleanedName.toLowerCase().contains(query.toLowerCase());
-        }).toList();
+        currentFilterPool
+            .where(
+              (item) =>
+                  item.cleanedName.toLowerCase().contains(query.toLowerCase()),
+            )
+            .toList();
 
-    setState(() {
-      _itemSuggestions = filtered;
-      _isSuggestionBoxVisible =
-          filtered.isNotEmpty; // Only show if there are suggestions
-    });
+    if (modalSetState != null) {
+      modalSetState(() {
+        _itemSuggestions = filtered;
+        _isSuggestionBoxVisible = filtered.isNotEmpty;
+      });
+    } else {
+      setState(() {
+        _itemSuggestions = filtered;
+        _isSuggestionBoxVisible = filtered.isNotEmpty;
+      });
+    }
   }
 
   Future<void> _loadTipeBarang() async {
@@ -558,17 +554,28 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       children: [
                         TextFormField(
                           controller: _namaController,
-                          enabled: true, // DIUBAH: Always enabled
+                          enabled: true,
                           onChanged: (value) {
-                            _filterItemSuggestions(value);
-                            setState(() {
+                            _filterItemSuggestions(value, setModalState);
+                            setModalState(() {
                               _isNamaFromSuggestion = false;
                               _selectedBarangId = null;
                               _selectedTipeId = null;
+                              _isSuggestionBoxVisible = value.isNotEmpty;
                             });
                           },
+                          onTap: () {
+                            if (_namaController.text.isNotEmpty) {
+                              _filterItemSuggestions(
+                                _namaController.text,
+                                setModalState,
+                              );
+                              setModalState(() {
+                                _isSuggestionBoxVisible = true;
+                              });
+                            }
+                          },
                           decoration: const InputDecoration(
-                            // DIUBAH: Hapus filled dan fillColor
                             labelText: 'Nama Barang',
                             border: OutlineInputBorder(),
                           ),
@@ -578,7 +585,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                       ? 'Nama Barang tidak boleh kosong'
                                       : null,
                         ),
-                        if (_isSuggestionBoxVisible) _buildItemSuggestionList(),
+                        if (_isSuggestionBoxVisible &&
+                            _itemSuggestions.isNotEmpty)
+                          _buildItemSuggestionList(),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -1175,19 +1184,15 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       setState(() {
                         _namaController.text = item.cleanedName;
                         _selectedBarangId = item.id;
-                        _selectedPackaging =
-                            item.packaging; // Set packaging from selected item
+                        _selectedPackaging = item.packaging;
 
-                        // Cari tipe barang berdasarkan NAMA, lalu ambil ID-nya
                         final matchingTipe = _tipeBarangList.firstWhere(
                           (tipe) =>
                               (tipe['name'] ?? '')
                                   .toString()
                                   .trim()
                                   .toLowerCase() ==
-                              item.type
-                                  .trim()
-                                  .toLowerCase(), // Tambah toLowerCase()
+                              item.type.trim().toLowerCase(),
                           orElse: () => <String, dynamic>{},
                         );
 
@@ -1195,18 +1200,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                           _selectedTipeId =
                               (matchingTipe['tipe_id'] ?? '').toString().trim();
                         } else {
-                          _selectedTipeId =
-                              null; // Set to null if no matching ID found
+                          _selectedTipeId = null;
                         }
 
                         _isNamaFromSuggestion = true;
                         _isSuggestionBoxVisible = false;
                       });
 
-                      // Delay kecil untuk unfocus agar keyboard dan suggestion benar-benar tertutup
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        FocusScope.of(context).unfocus();
-                      });
+                      FocusScope.of(context).unfocus();
                     },
                   );
                 },
