@@ -580,574 +580,718 @@ class _ContainerScreenState extends State<ContainerScreen> {
   Widget _buildInputModal(BuildContext context) {
     return StatefulBuilder(
       builder: (BuildContext context, StateSetter setModalState) {
-        return GestureDetector(
-          onTap: () {
-            setModalState(() => _isSuggestionBoxVisible = false);
-            FocusScope.of(context).unfocus();
-          },
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 16,
-              right: 16,
-              top: 16,
-            ),
-            child: SingleChildScrollView(
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Input Data Barang',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            if (mounted) {
-                              _controller.start(); // Aktifkan scanner kembali
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Container: ${_selectedContainerNumber ?? 'Error'}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildReadOnlyField('No. LPB', _noLpbController),
-                    const SizedBox(height: 10),
-                    _buildReadOnlyField('Kode Barang', _kodebarangController),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(flex: 1, child: Container()),
-                        Expanded(
-                          flex: 1,
-                          child: _buildReadOnlyField(
-                            'Urutan',
-                            _urutanbarangController,
-                            textAlign: TextAlign.center,
-                            fontSize: 16, // Ukuran font diperbesar
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text(
-                            '/',
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.87,
+          child: GestureDetector(
+            onTap: () {
+              setModalState(() => _isSuggestionBoxVisible = false);
+              FocusScope.of(context).unfocus();
+            },
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Input Data Barang',
                             style: TextStyle(
-                              fontSize: 24,
-                            ), // Diperbesar dari 20 ke 24
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: _buildReadOnlyField(
-                            'Total',
-                            _totalbarangController,
-                            textAlign: TextAlign.center,
-                            fontSize: 16, // Ukuran font diperbesar
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              if (mounted) {
+                                _controller.start();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              shape: const CircleBorder(),
+                              backgroundColor: Colors.red,
+                              padding: const EdgeInsets.all(10),
+                              minimumSize: const Size(40, 40),
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 24,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // NEW: Kemasan Dropdown
-                    DropdownButtonFormField<String>(
-                      value: _selectedPackaging,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        // DIUBAH: Hapus filled dan fillColor
-                        labelText: 'Kemasan',
-                        border: OutlineInputBorder(),
+                        ],
                       ),
-                      hint: const Text('Pilih Kemasan'),
-                      items:
-                          _uniquePackagingTypes.map((packaging) {
-                            return DropdownMenuItem<String>(
-                              value: packaging,
-                              child: Text(packaging),
-                            );
-                          }).toList(),
-                      onChanged: (String? newValue) {
-                        // DIUBAH: Always enabled
-                        setState(() {
-                          _selectedPackaging = newValue;
-                          _filterItemSuggestions(
-                            _namaController.text,
-                          ); // Re-filter suggestions based on new packaging
-                          // Clear existing item selection if packaging changes and it's not from scan
-                          if (!_isNamaFromSuggestion) {
-                            _selectedBarangId = null;
-                            _selectedTipeId = null;
-                          }
-                        });
-                      },
-                      validator:
-                          (value) =>
-                              (value == null || value.isEmpty)
-                                  ? 'Pilih kemasan barang'
-                                  : null,
-                    ),
-                    const SizedBox(height: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _namaController,
-                          enabled: true,
-                          onChanged: (value) {
-                            _filterItemSuggestions(value, setModalState);
-                            setModalState(() {
-                              _isNamaFromSuggestion = false;
+                      Text(
+                        'Container: ${_selectedContainerNumber ?? 'Error'}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildReadOnlyField('No. LPB', _noLpbController),
+                      const SizedBox(height: 10),
+                      _buildReadOnlyField('Kode Barang', _kodebarangController),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(flex: 1, child: Container()),
+                          Expanded(
+                            flex: 1,
+                            child: _buildReadOnlyField(
+                              'Urutan',
+                              _urutanbarangController,
+                              textAlign: TextAlign.center,
+                              fontSize: 16, // Ukuran font diperbesar
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              '/',
+                              style: TextStyle(
+                                fontSize: 24,
+                              ), // Diperbesar dari 20 ke 24
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: _buildReadOnlyField(
+                              'Total',
+                              _totalbarangController,
+                              textAlign: TextAlign.center,
+                              fontSize: 16, // Ukuran font diperbesar
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // NEW: Kemasan Dropdown
+                      DropdownButtonFormField<String>(
+                        value: _selectedPackaging,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          // DIUBAH: Hapus filled dan fillColor
+                          labelText: 'Kemasan',
+                          border: OutlineInputBorder(),
+                        ),
+                        hint: const Text('Pilih Kemasan'),
+                        items:
+                            _uniquePackagingTypes.map((packaging) {
+                              return DropdownMenuItem<String>(
+                                value: packaging,
+                                child: Text(packaging),
+                              );
+                            }).toList(),
+                        onChanged: (String? newValue) {
+                          // DIUBAH: Always enabled
+                          setState(() {
+                            _selectedPackaging = newValue;
+                            _filterItemSuggestions(
+                              _namaController.text,
+                            ); // Re-filter suggestions based on new packaging
+                            // Clear existing item selection if packaging changes and it's not from scan
+                            if (!_isNamaFromSuggestion) {
                               _selectedBarangId = null;
                               _selectedTipeId = null;
-                              _isSuggestionBoxVisible = value.isNotEmpty;
-                            });
-                          },
-                          onTap: () {
-                            if (_namaController.text.isNotEmpty) {
-                              _filterItemSuggestions(
-                                _namaController.text,
-                                setModalState,
-                              );
-                              setModalState(() {
-                                _isSuggestionBoxVisible = true;
-                              });
                             }
-                          },
-                          decoration: const InputDecoration(
-                            labelText: 'Nama Barang',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator:
-                              (value) =>
-                                  (value == null || value.isEmpty)
-                                      ? 'Nama Barang tidak boleh kosong'
-                                      : null,
-                        ),
-                        if (_isSuggestionBoxVisible &&
-                            _itemSuggestions.isNotEmpty)
-                          _buildItemSuggestionList(),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _isLoadingTipe
-                        ? const Center(child: CircularProgressIndicator())
-                        : DropdownButtonFormField<String>(
-                          value: _selectedTipeId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            // DIUBAH: Hapus filled dan fillColor
-                            labelText: 'Tipe Barang',
-                            border: OutlineInputBorder(),
-                          ),
-                          hint: const Text('Pilih Tipe'),
-                          items:
-                              _tipeBarangList.map((tipe) {
-                                return DropdownMenuItem<String>(
-                                  value:
-                                      (tipe['tipe_id'] ?? '').toString().trim(),
-                                  child: Text(
-                                    (tipe['name'] ?? 'Tanpa Nama')
-                                        .toString()
-                                        .trim(),
-                                  ),
+                          });
+                        },
+                        validator:
+                            (value) =>
+                                (value == null || value.isEmpty)
+                                    ? 'Pilih kemasan barang'
+                                    : null,
+                      ),
+                      const SizedBox(height: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _namaController,
+                            enabled: true,
+                            onChanged: (value) {
+                              _filterItemSuggestions(value, setModalState);
+                              setModalState(() {
+                                _isNamaFromSuggestion = false;
+                                _selectedBarangId = null;
+                                _selectedTipeId = null;
+                                _isSuggestionBoxVisible = value.isNotEmpty;
+                              });
+                            },
+                            onTap: () {
+                              if (_namaController.text.isNotEmpty) {
+                                _filterItemSuggestions(
+                                  _namaController.text,
+                                  setModalState,
                                 );
-                              }).toList(),
-                          onChanged: (String? newValue) {
-                            // DIUBAH: Always enabled
-                            setState(() => _selectedTipeId = newValue);
-                          },
-                          validator:
-                              (value) =>
-                                  (value == null || value.isEmpty)
-                                      ? 'Pilih tipe barang'
-                                      : null,
-                        ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _panjangController,
-                            focusNode: _panjangFocusNode,
-                            textInputAction: TextInputAction.next,
-                            onFieldSubmitted: (_) {
-                              FocusScope.of(
-                                context,
-                              ).requestFocus(_lebarFocusNode);
+                                setModalState(() {
+                                  _isSuggestionBoxVisible = true;
+                                });
+                              }
                             },
                             decoration: const InputDecoration(
-                              labelText: 'Panjang (cm)',
+                              labelText: 'Nama Barang',
                               border: OutlineInputBorder(),
                             ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => _hitungVolume(),
                             validator:
-                                (v) =>
-                                    (v == null ||
-                                            v.isEmpty ||
-                                            double.tryParse(v.trim()) == null)
-                                        ? 'Angka valid'
+                                (value) =>
+                                    (value == null || value.isEmpty)
+                                        ? 'Nama Barang tidak boleh kosong'
                                         : null,
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _lebarController,
-                            focusNode: _lebarFocusNode,
-                            textInputAction: TextInputAction.next,
-                            onFieldSubmitted: (_) {
-                              FocusScope.of(
-                                context,
-                              ).requestFocus(_tinggiFocusNode);
-                            },
-                            decoration: const InputDecoration(
-                              labelText: 'Lebar (cm)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => _hitungVolume(),
-                            validator:
-                                (v) =>
-                                    (v == null ||
-                                            v.isEmpty ||
-                                            double.tryParse(v.trim()) == null)
-                                        ? 'Angka valid'
-                                        : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _tinggiController,
-                            focusNode: _tinggiFocusNode,
-                            textInputAction: TextInputAction.next,
-                            onFieldSubmitted: (_) {
-                              FocusScope.of(
-                                context,
-                              ).requestFocus(_beratFocusNode);
-                            },
-                            decoration: const InputDecoration(
-                              labelText: 'Tinggi (cm)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => _hitungVolume(),
-                            validator:
-                                (v) =>
-                                    (v == null ||
-                                            v.isEmpty ||
-                                            double.tryParse(v.trim()) == null)
-                                        ? 'Angka valid'
-                                        : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _beratController,
-                            focusNode: _beratFocusNode,
-                            textInputAction: TextInputAction.done,
-                            decoration: const InputDecoration(
-                              labelText: 'Berat (kg)',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator:
-                                (v) =>
-                                    (v == null ||
-                                            v.isEmpty ||
-                                            double.tryParse(v.trim()) == null)
-                                        ? 'Angka valid'
-                                        : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _volumeController,
-                            readOnly: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Volume (m³)',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedCondition,
+                          if (_isSuggestionBoxVisible &&
+                              _itemSuggestions.isNotEmpty)
+                            _buildItemSuggestionList(),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _isLoadingTipe
+                          ? const Center(child: CircularProgressIndicator())
+                          : DropdownButtonFormField<String>(
+                            value: _selectedTipeId,
                             isExpanded: true,
                             decoration: const InputDecoration(
-                              labelText: 'Kondisi Barang',
+                              // DIUBAH: Hapus filled dan fillColor
+                              labelText: 'Tipe Barang',
                               border: OutlineInputBorder(),
                             ),
+                            hint: const Text('Pilih Tipe'),
                             items:
-                                <String>[
-                                  'Normal',
-                                  'Rusak (Dikirim)',
-                                  'Rusak (Tidak Dikirim)',
-                                  'Kurang',
-                                ].map<DropdownMenuItem<String>>((String value) {
+                                _tipeBarangList.map((tipe) {
                                   return DropdownMenuItem<String>(
-                                    value: value,
+                                    value:
+                                        (tipe['tipe_id'] ?? '')
+                                            .toString()
+                                            .trim(),
                                     child: Text(
-                                      value,
-                                      style: const TextStyle(fontSize: 14),
+                                      (tipe['name'] ?? 'Tanpa Nama')
+                                          .toString()
+                                          .trim(),
                                     ),
                                   );
                                 }).toList(),
                             onChanged: (String? newValue) {
-                              bool newShowFotoUpload =
-                                  newValue == 'Rusak (Dikirim)' ||
-                                  newValue == 'Rusak (Tidak Dikirim)';
-                              bool newShowKeteranganField =
-                                  newValue == 'Rusak (Dikirim)' ||
-                                  newValue == 'Rusak (Tidak Dikirim)' ||
-                                  newValue == 'Kurang';
-
-                              setModalState(() {
-                                _selectedCondition = newValue;
-                                _showFotoUpload = newShowFotoUpload;
-                                _showKeteranganField = newShowKeteranganField;
-                              });
-
-                              // Reset foto jika status tidak memerlukan foto
-                              if (!newShowFotoUpload) {
-                                setState(() {
-                                  _fotoFile = null;
-                                  _fotoUrl = null;
-                                });
-                              }
+                              // DIUBAH: Always enabled
+                              setState(() => _selectedTipeId = newValue);
                             },
                             validator:
                                 (value) =>
                                     (value == null || value.isEmpty)
-                                        ? 'Pilih kondisi barang'
+                                        ? 'Pilih tipe barang'
                                         : null,
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        if (_showFotoUpload)
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _panjangController,
+                              focusNode: _panjangFocusNode,
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) {
+                                FocusScope.of(
+                                  context,
+                                ).requestFocus(_lebarFocusNode);
+                              },
+                              decoration: const InputDecoration(
+                                labelText: 'Panjang (cm)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) => _hitungVolume(),
+                              validator:
+                                  (v) =>
+                                      (v == null ||
+                                              v.isEmpty ||
+                                              double.tryParse(v.trim()) == null)
+                                          ? 'Angka valid'
+                                          : null,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _lebarController,
+                              focusNode: _lebarFocusNode,
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) {
+                                FocusScope.of(
+                                  context,
+                                ).requestFocus(_tinggiFocusNode);
+                              },
+                              decoration: const InputDecoration(
+                                labelText: 'Lebar (cm)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) => _hitungVolume(),
+                              validator:
+                                  (v) =>
+                                      (v == null ||
+                                              v.isEmpty ||
+                                              double.tryParse(v.trim()) == null)
+                                          ? 'Angka valid'
+                                          : null,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _tinggiController,
+                              focusNode: _tinggiFocusNode,
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) {
+                                FocusScope.of(
+                                  context,
+                                ).requestFocus(_beratFocusNode);
+                              },
+                              decoration: const InputDecoration(
+                                labelText: 'Tinggi (cm)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) => _hitungVolume(),
+                              validator:
+                                  (v) =>
+                                      (v == null ||
+                                              v.isEmpty ||
+                                              double.tryParse(v.trim()) == null)
+                                          ? 'Angka valid'
+                                          : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _beratController,
+                              focusNode: _beratFocusNode,
+                              textInputAction: TextInputAction.done,
+                              decoration: const InputDecoration(
+                                labelText: 'Berat (kg)',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator:
+                                  (v) =>
+                                      (v == null ||
+                                              v.isEmpty ||
+                                              double.tryParse(v.trim()) == null)
+                                          ? 'Angka valid'
+                                          : null,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _volumeController,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Volume (m³)',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
                           Expanded(
                             flex: 1,
-                            child: Container(
-                              height: 56, // Sesuaikan dengan tinggi dropdown
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(4),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedCondition,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Kondisi Barang',
+                                border: OutlineInputBorder(),
                               ),
-                              child: IconButton(
-                                onPressed: () {
+                              items:
+                                  <String>[
+                                    'Normal',
+                                    'Rusak (Dikirim)',
+                                    'Rusak (Tidak Dikirim)',
+                                    'Kurang',
+                                  ].map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(
+                                        value,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    );
+                                  }).toList(),
+                              onChanged: (String? newValue) {
+                                bool newShowFotoUpload =
+                                    newValue == 'Rusak (Dikirim)' ||
+                                    newValue == 'Rusak (Tidak Dikirim)';
+                                bool newShowKeteranganField =
+                                    newValue == 'Rusak (Dikirim)' ||
+                                    newValue == 'Rusak (Tidak Dikirim)' ||
+                                    newValue == 'Kurang';
+
+                                setModalState(() {
+                                  _selectedCondition = newValue;
+                                  _showFotoUpload = newShowFotoUpload;
+                                  _showKeteranganField = newShowKeteranganField;
+                                });
+
+                                // Reset foto jika status tidak memerlukan foto
+                                if (!newShowFotoUpload) {
+                                  setState(() {
+                                    _fotoFile = null;
+                                    _fotoUrl = null;
+                                  });
+                                }
+                              },
+                              validator:
+                                  (value) =>
+                                      (value == null || value.isEmpty)
+                                          ? 'Pilih kondisi barang'
+                                          : null,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          if (_showFotoUpload)
+                            Expanded(
+                              flex: 1,
+                              child: Container(
+                                height: 56, // Sesuaikan dengan tinggi dropdown
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: IconButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text(
+                                            "Pilih Sumber Gambar",
+                                          ),
+                                          actions: [
+                                            TextButton.icon(
+                                              icon: const Icon(
+                                                Icons.camera_alt,
+                                              ),
+                                              label: const Text("Kamera"),
+                                              onPressed: () async {
+                                                Navigator.of(context).pop();
+                                                await _pickImage(
+                                                  ImageSource.camera,
+                                                );
+                                                setModalState(() {});
+                                              },
+                                            ),
+                                            TextButton.icon(
+                                              icon: const Icon(Icons.image),
+                                              label: const Text("Galeri"),
+                                              onPressed: () async {
+                                                Navigator.of(context).pop();
+                                                await _pickImage(
+                                                  ImageSource.gallery,
+                                                );
+                                                setModalState(() {});
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                  icon: const Icon(Icons.camera_alt, size: 28),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      if (_fotoFile != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: GestureDetector(
+                                onTap: () {
                                   showDialog(
                                     context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: const Text(
-                                          "Pilih Sumber Gambar",
+                                    builder: (context) {
+                                      return Dialog(
+                                        insetPadding: const EdgeInsets.all(16),
+                                        backgroundColor: Colors.transparent,
+                                        child: Stack(
+                                          children: [
+                                            InteractiveViewer(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: Image.file(
+                                                  _fotoFile!,
+                                                  fit: BoxFit.contain,
+                                                  width: double.infinity,
+                                                ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top: 10,
+                                              right: 10,
+                                              child: ElevatedButton(
+                                                onPressed:
+                                                    () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(),
+                                                style: ElevatedButton.styleFrom(
+                                                  shape: const CircleBorder(),
+                                                  backgroundColor: Colors.red,
+                                                  padding: const EdgeInsets.all(
+                                                    10,
+                                                  ),
+                                                  minimumSize: const Size(
+                                                    40,
+                                                    40,
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        actions: [
-                                          TextButton.icon(
-                                            icon: const Icon(Icons.camera_alt),
-                                            label: const Text("Kamera"),
-                                            onPressed: () async {
-                                              Navigator.of(context).pop();
-                                              await _pickImage(
-                                                ImageSource.camera,
-                                              );
-                                              setModalState(() {});
-                                            },
-                                          ),
-                                          TextButton.icon(
-                                            icon: const Icon(Icons.image),
-                                            label: const Text("Galeri"),
-                                            onPressed: () async {
-                                              Navigator.of(context).pop();
-                                              await _pickImage(
-                                                ImageSource.gallery,
-                                              );
-                                              setModalState(() {});
-                                            },
-                                          ),
-                                        ],
                                       );
                                     },
                                   );
                                 },
-                                icon: const Icon(Icons.camera_alt, size: 28),
+                                child: Image.file(
+                                  _fotoFile!,
+                                  height: 120,
+                                  width: 120,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-
-                    if (_fotoFile != null) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: GestureDetector(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder:
-                                      (_) =>
-                                          Dialog(child: Image.file(_fotoFile!)),
-                                );
-                              },
-                              child: Image.file(
-                                _fotoFile!,
-                                height: 120,
-                                width: 120,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: IconButton(
-                              icon: const Icon(Icons.delete, size: 40),
-                              onPressed: () {
-                                setModalState(() {
-                                  _fotoFile = null;
-                                  _fotoUrl = null;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else if (_fotoUrl != null) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: GestureDetector(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder:
-                                      (_) => Dialog(
-                                        child: Image.network(_fotoUrl!),
-                                      ),
-                                );
-                              },
-                              child: Image.network(
-                                _fotoUrl!,
-                                height: 120,
-                                width: 120,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(Icons.error, size: 40);
+                            Expanded(
+                              flex: 1,
+                              child: IconButton(
+                                icon: const Icon(Icons.delete, size: 40),
+                                onPressed: () {
+                                  setModalState(() {
+                                    _fotoFile = null;
+                                  });
                                 },
                               ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: IconButton(
-                              icon: const Icon(Icons.delete, size: 40),
-                              onPressed: () {
-                                setModalState(() {
-                                  _fotoUrl = null;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    // Conditionally show keterangan field
-                    if (_showKeteranganField) ...[
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: _keteranganController,
-                        decoration: const InputDecoration(
-                          labelText: 'Keterangan Barang',
-                          border: OutlineInputBorder(),
+                          ],
                         ),
-                        validator: (value) {
-                          if (_showKeteranganField &&
-                              (value == null || value.isEmpty)) {
-                            return 'Keterangan Barang wajib diisi';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
-                          setState(() => _isLoading = true);
-
-                          final prefs = await SharedPreferences.getInstance();
-                          final containerId = prefs.getString('container_id');
-
-                          if (containerId == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
+                      ] else if (_fotoUrl != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: GestureDetector(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) {
+                                      return Dialog(
+                                        insetPadding: const EdgeInsets.all(16),
+                                        backgroundColor: Colors.transparent,
+                                        child: Stack(
+                                          children: [
+                                            InteractiveViewer(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: Image.network(
+                                                  _fotoUrl!,
+                                                  fit: BoxFit.contain,
+                                                  width: double.infinity,
+                                                  errorBuilder: (
+                                                    context,
+                                                    error,
+                                                    stackTrace,
+                                                  ) {
+                                                    return const Center(
+                                                      child: Text(
+                                                        'Gagal memuat gambar',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top: 10,
+                                              right: 10,
+                                              child: ElevatedButton(
+                                                onPressed:
+                                                    () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(),
+                                                style: ElevatedButton.styleFrom(
+                                                  shape: const CircleBorder(),
+                                                  backgroundColor: Colors.red,
+                                                  padding: const EdgeInsets.all(
+                                                    10,
+                                                  ),
+                                                  minimumSize: const Size(
+                                                    40,
+                                                    40,
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                                child: Image.network(
+                                  _fotoUrl!,
+                                  height: 120,
+                                  width: 120,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(Icons.error, size: 40);
+                                  },
                                 ),
                               ),
-                            );
-                            setState(() => _isLoading = false);
-                            return;
-                          }
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: TextButton(
+                                onPressed: () {
+                                  setModalState(() {
+                                    _fotoUrl = null;
+                                  });
+                                },
+                                child: const Text(
+                                  'Hapus Foto',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
 
-                          try {
-                            String namaBarangToSend;
-                            if (_isNamaFromSuggestion &&
-                                _selectedBarangId != null) {
-                              ItemSuggestion? selectedItem;
-                              try {
-                                selectedItem = _allItems.firstWhere(
-                                  (element) => element.id == _selectedBarangId,
-                                );
-                              } catch (e) {
-                                print(
-                                  "Item with ID $_selectedBarangId not found in the master list. Proceeding with manual name construction.",
-                                );
-                              }
+                      // Conditionally show keterangan field
+                      if (_showKeteranganField) ...[
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _keteranganController,
+                          decoration: const InputDecoration(
+                            labelText: 'Keterangan Barang',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (_showKeteranganField &&
+                                (value == null || value.isEmpty)) {
+                              return 'Keterangan Barang wajib diisi';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+                            setState(() => _isLoading = true);
 
-                              if (selectedItem != null) {
-                                namaBarangToSend = selectedItem.originalName;
+                            final prefs = await SharedPreferences.getInstance();
+                            final containerId = prefs.getString('container_id');
+
+                            if (containerId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
+                                  ),
+                                ),
+                              );
+                              setState(() => _isLoading = false);
+                              return;
+                            }
+
+                            try {
+                              String namaBarangToSend;
+                              if (_isNamaFromSuggestion &&
+                                  _selectedBarangId != null) {
+                                ItemSuggestion? selectedItem;
+                                try {
+                                  selectedItem = _allItems.firstWhere(
+                                    (element) =>
+                                        element.id == _selectedBarangId,
+                                  );
+                                } catch (e) {
+                                  print(
+                                    "Item with ID $_selectedBarangId not found in the master list. Proceeding with manual name construction.",
+                                  );
+                                }
+
+                                if (selectedItem != null) {
+                                  namaBarangToSend = selectedItem.originalName;
+                                } else {
+                                  if (_selectedPackaging == null ||
+                                      _selectedPackaging!.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Item data seems inconsistent. Please select a packaging type.',
+                                        ),
+                                      ),
+                                    );
+                                    setState(() => _isLoading = false);
+                                    return;
+                                  }
+                                  namaBarangToSend =
+                                      '${_selectedPackaging!} ${_namaController.text}'
+                                          .trim();
+                                }
                               } else {
                                 if (_selectedPackaging == null ||
                                     _selectedPackaging!.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        'Item data seems inconsistent. Please select a packaging type.',
+                                        'Mohon pilih kemasan barang.',
                                       ),
                                     ),
                                   );
@@ -1158,132 +1302,118 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                     '${_selectedPackaging!} ${_namaController.text}'
                                         .trim();
                               }
-                            } else {
-                              if (_selectedPackaging == null ||
-                                  _selectedPackaging!.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Mohon pilih kemasan barang.',
-                                    ),
-                                  ),
-                                );
-                                setState(() => _isLoading = false);
-                                return;
+
+                              String? statusValue;
+                              if (_selectedCondition == 'Kurang') {
+                                statusValue = '1';
+                              } else if (_selectedCondition ==
+                                  'Rusak (Tidak Dikirim)') {
+                                statusValue = '2';
+                              } else if (_selectedCondition ==
+                                  'Rusak (Dikirim)') {
+                                statusValue = '3';
                               }
-                              namaBarangToSend =
-                                  '${_selectedPackaging!} ${_namaController.text}'
-                                      .trim();
-                            }
 
-                            String? statusValue;
-                            if (_selectedCondition == 'Kurang') {
-                              statusValue = '1';
-                            } else if (_selectedCondition ==
-                                'Rusak (Tidak Dikirim)') {
-                              statusValue = '2';
-                            } else if (_selectedCondition ==
-                                'Rusak (Dikirim)') {
-                              statusValue = '3';
-                            }
+                              bool shouldDeletePhoto =
+                                  _fotoFile == null &&
+                                  _fotoUrl == null &&
+                                  _showFotoUpload;
 
-                            bool shouldDeletePhoto =
-                                _fotoFile == null &&
-                                _fotoUrl == null &&
-                                _showFotoUpload;
+                              final success = await _lclService.saveLPBDetail(
+                                number_lpb_item:
+                                    _kodebarangController.text.trim(),
+                                weight: _beratController.text.trim(),
+                                height: _tinggiController.text.trim(),
+                                length: _panjangController.text.trim(),
+                                width: _lebarController.text.trim(),
+                                nama_barang: namaBarangToSend,
+                                tipe_barang: _selectedTipeId!,
+                                barang_id: _selectedBarangId,
+                                container_number: containerId,
+                                status: statusValue,
+                                keterangan:
+                                    _keteranganController.text.isNotEmpty
+                                        ? _keteranganController.text
+                                        : null,
+                                foto_terima_barang: _fotoFile,
+                                deleteExistingFoto: shouldDeletePhoto,
+                              );
 
-                            final success = await _lclService.saveLPBDetail(
-                              number_lpb_item:
-                                  _kodebarangController.text.trim(),
-                              weight: _beratController.text.trim(),
-                              height: _tinggiController.text.trim(),
-                              length: _panjangController.text.trim(),
-                              width: _lebarController.text.trim(),
-                              nama_barang: namaBarangToSend,
-                              tipe_barang: _selectedTipeId!,
-                              barang_id: _selectedBarangId,
-                              container_number: containerId,
-                              status: statusValue,
-                              keterangan:
-                                  _keteranganController.text.isNotEmpty
-                                      ? _keteranganController.text
-                                      : null,
-                              foto_terima_barang: _fotoFile,
-                              deleteExistingFoto: shouldDeletePhoto,
-                            );
-
-                            if (mounted) {
-                              Navigator.of(context).pop();
-                              showDialog(
-                                context: context,
-                                builder:
-                                    (context) => AlertDialog(
-                                      title: Text(
-                                        success ? 'Berhasil' : 'Gagal',
-                                      ),
-                                      content: Text(
-                                        success
-                                            ? 'Data berhasil disimpan ke Container'
-                                            : 'Gagal menyimpan data',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed:
-                                              () => Navigator.of(context).pop(),
-                                          child: const Text('OK'),
+                              if (mounted) {
+                                Navigator.of(context).pop();
+                                showDialog(
+                                  context: context,
+                                  builder:
+                                      (context) => AlertDialog(
+                                        title: Text(
+                                          success ? 'Berhasil' : 'Gagal',
                                         ),
-                                      ],
-                                    ),
-                              ).then((_) {
-                                if (mounted) {
-                                  _controller
-                                      .start(); // Aktifkan scanner setelah dialog tertutup
-                                }
-                              });
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              showDialog(
-                                context: context,
-                                builder:
-                                    (context) => AlertDialog(
-                                      title: const Text('Error'),
-                                      content: Text(
-                                        'Terjadi kesalahan: ${e.toString()}',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed:
-                                              () => Navigator.of(context).pop(),
-                                          child: const Text('OK'),
+                                        content: Text(
+                                          success
+                                              ? 'Data berhasil disimpan ke Container'
+                                              : 'Gagal menyimpan data',
                                         ),
-                                      ],
-                                    ),
-                              ).then((_) {
-                                if (mounted) {
-                                  _controller
-                                      .start(); // Aktifkan scanner setelah dialog tertutup
-                                }
-                              });
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () =>
+                                                    Navigator.of(context).pop(),
+                                            child: const Text('OK'),
+                                          ),
+                                        ],
+                                      ),
+                                ).then((_) {
+                                  if (mounted) {
+                                    _controller
+                                        .start(); // Aktifkan scanner setelah dialog tertutup
+                                  }
+                                });
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                showDialog(
+                                  context: context,
+                                  builder:
+                                      (context) => AlertDialog(
+                                        title: const Text('Error'),
+                                        content: Text(
+                                          'Terjadi kesalahan: ${e.toString()}',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () =>
+                                                    Navigator.of(context).pop(),
+                                            child: const Text('OK'),
+                                          ),
+                                        ],
+                                      ),
+                                ).then((_) {
+                                  if (mounted) {
+                                    _controller
+                                        .start(); // Aktifkan scanner setelah dialog tertutup
+                                  }
+                                });
+                              }
+                            } finally {
+                              if (mounted) setState(() => _isLoading = false);
                             }
-                          } finally {
-                            if (mounted) setState(() => _isLoading = false);
                           }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
+                        },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child:
+                            _isLoading
+                                ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                                : const Text('Simpan Data'),
                       ),
-                      child:
-                          _isLoading
-                              ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                              : const Text('Simpan Data'),
-                    ),
 
-                    const SizedBox(height: 10),
-                  ],
+                      const SizedBox(height: 10),
+                    ],
+                  ),
                 ),
               ),
             ),
