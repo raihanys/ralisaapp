@@ -25,31 +25,9 @@ class AuthService {
     required String username,
     required String password,
   }) async {
-    // In the login method, uncomment and modify the force login block if needed:
-    // --- START: BLOK KODE UNTUK FORCE LOGIN ---
-    // Tentukan username dan password khusus untuk force login
-    // if (username == 'kepalagudang' && password == '12345678') {
-    //   print('--- Melakukan Force Login Lokal untuk Kepala Gudang ---');
-    //   final prefs = await SharedPreferences.getInstance();
-
-    //   // Simulasikan data login yang berhasil
-    //   await prefs.setBool('isLoggedIn', true);
-    //   await prefs.setString('username', username);
-    //   await prefs.setString('password', password);
-    //   await prefs.setString('role', '5'); // Role untuk Kepala Gudang
-    //   await prefs.setString('version', '1.0');
-    //   await prefs.setString('token', 'dummy-local-token-for-kepala-gudang');
-
-    //   print('Force Login Berhasil. Navigasi ke Halaman Kepala Gudang.');
-    //   return {'status': 'success', 'message': 'Local force login'};
-    // }
-    // --- END: BLOK KODE UNTUK FORCE LOGIN ---
-
     final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
     // final imei = await _getDeviceImei();
 
-    // Cukup panggil _attemptLogin satu kali.
-    // API yang akan menentukan tipe user berdasarkan username & password.
     return await _attemptLogin(
       username: username,
       password: password,

@@ -150,13 +150,10 @@ class _ContainerScreenState extends State<ContainerScreen> {
   void initState() {
     super.initState();
     _loadTipeBarang();
-    _loadAllContainers(); // Load semua container
     _loadAllItems(); // Load semua barang
     // Inisialisasi _uniquePackagingTypes dengan daftar yang diizinkan
     _uniquePackagingTypes = _allowedPackagingTypes;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showContainerSelectionModal();
-    });
+    _initContainers();
     _selectedCondition = 'Normal';
     _keteranganController = TextEditingController();
     _showFotoUpload = false;
@@ -206,6 +203,15 @@ class _ContainerScreenState extends State<ContainerScreen> {
       });
     }
     setState(() => _isFetchingContainers = false);
+  }
+
+  Future<void> _initContainers() async {
+    await _loadAllContainers();
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showContainerSelectionModal();
+      });
+    }
   }
 
   Future<void> _loadAllItems() async {
@@ -311,7 +317,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   // Kondisi loading sekarang akan selalu false saat dialog dibuka karena data sudah siap
                   // jadi CircularProgressIndicator tidak akan terjebak lagi.
                   _isFetchingContainers
-                      ? const CircularProgressIndicator()
+                      ? const Center(child: CircularProgressIndicator())
                       : SizedBox(
                         height: 200,
                         width: double.maxFinite,
@@ -336,7 +342,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                 setState(() {
                                   _selectedContainerId = suggestion.id;
                                   _selectedContainerNumber = suggestion.number;
-                                  // --- UPDATED ---: Set container selected to true to activate the scanner.
                                   _isContainerSelected = true;
                                 });
 
@@ -1094,13 +1099,19 @@ class _ContainerScreenState extends State<ContainerScreen> {
                             ),
                             Expanded(
                               flex: 1,
-                              child: IconButton(
-                                icon: const Icon(Icons.delete, size: 40),
+                              child: TextButton(
                                 onPressed: () {
                                   setModalState(() {
                                     _fotoFile = null;
                                   });
                                 },
+                                child: const Text(
+                                  'Hapus Foto',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ],

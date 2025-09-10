@@ -940,13 +940,19 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             ),
                             Expanded(
                               flex: 1,
-                              child: IconButton(
-                                icon: const Icon(Icons.delete, size: 40),
+                              child: TextButton(
                                 onPressed: () {
                                   setModalState(() {
                                     _fotoFile = null;
                                   });
                                 },
+                                child: const Text(
+                                  'Hapus Foto',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                           ],

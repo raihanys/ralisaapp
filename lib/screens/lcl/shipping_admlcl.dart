@@ -50,10 +50,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAllContainers();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showContainerSelectionModal();
-    });
+    _initContainers();
   }
 
   @override
@@ -84,6 +81,15 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       });
     }
     setState(() => _isFetchingContainers = false);
+  }
+
+  Future<void> _initContainers() async {
+    await _loadAllContainers();
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showContainerSelectionModal();
+      });
+    }
   }
 
   void _filterContainerSuggestions(String query, StateSetter dialogSetState) {
@@ -138,7 +144,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                   // Kondisi loading sekarang akan selalu false saat dialog dibuka karena data sudah siap
                   // jadi CircularProgressIndicator tidak akan terjebak lagi.
                   _isFetchingContainers
-                      ? const CircularProgressIndicator()
+                      ? const Center(child: CircularProgressIndicator())
                       : SizedBox(
                         height: 200,
                         width: double.maxFinite,
@@ -163,7 +169,6 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                                 setState(() {
                                   _selectedContainerId = suggestion.id;
                                   _selectedContainerNumber = suggestion.number;
-                                  // --- UPDATED ---: Set container selected to true to activate the scanner.
                                   _isContainerSelected = true;
                                 });
 
