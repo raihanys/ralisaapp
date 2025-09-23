@@ -261,6 +261,31 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     }
   }
 
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Wajib tekan tombol untuk menutup
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Tutup dialog
+                if (mounted) {
+                  _scannedBarcode = null;
+                  _controller.start(); // Aktifkan lagi scanner
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showInputModal(
     BuildContext context,
     String scannedBarcode,
@@ -301,6 +326,16 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       }
 
       final data = lpbData['data'] as Map<String, dynamic>;
+
+      final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
+      if (status >= 5) {
+        _showErrorDialog(
+          context,
+          'Status Tidak Valid',
+          'Barang sudah diinput di Kontainer atau sudah dalam proses Shipment.',
+        );
+        return;
+      }
 
       _noLpbController.text = (data['nomor_lpb'] ?? '').toString().trim();
       _kodebarangController.text =

@@ -194,6 +194,31 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
     });
   }
 
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Wajib tekan tombol untuk menutup
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Tutup dialog
+                if (mounted) {
+                  _scannedBarcode = null;
+                  _controller.start(); // Aktifkan lagi scanner
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showConfirmationModal(
     BuildContext context,
     String scannedBarcode,
@@ -230,6 +255,17 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       }
 
       final data = lpbData['data'] as Map<String, dynamic>;
+
+      final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
+      if (status != 4) {
+        _showErrorDialog(
+          context,
+          'Status Tidak Valid',
+          'Status barang tidak valid untuk proses ini.',
+        );
+        return; // Hentikan proses jika status tidak valid
+      }
+
       _codeBarang = data['code_barang'] ?? '';
 
       await showDialog(
