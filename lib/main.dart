@@ -6,6 +6,9 @@ import 'screens/supir/main_supir.dart';
 import './services/auth_service.dart';
 import 'screens/lcl/main_admlcl.dart';
 import 'screens/warehouse/main_warehouse.dart';
+import 'screens/warehouse_mks/main_warehouse_mks.dart';
+import 'screens/krani_mks/main_krani_mks.dart';
+import 'screens/kurir_mks/main_kurir_mks.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,6 +35,12 @@ class MyApp extends StatelessWidget {
             return const MainLCL();
           case '5': // Kepala Gudang
             return const MainWarehouse();
+          case '6': // Warehouse Makassar
+            return const MainWarehouseMks();
+          case '7': // Krani Makassar
+            return const MainKraniMks();
+          case '8': // Kurir Makassar
+            return const KurirMksScreen();
         }
       }
     }

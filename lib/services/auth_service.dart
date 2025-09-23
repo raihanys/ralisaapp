@@ -12,15 +12,13 @@ class AuthService {
   final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
   // final String baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api/login';
   // TESTING
-  // final String baseUrl = 'http://192.168.200.75/ralisa_api/index.php/api/login';
-  // final String baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api/login';
+  // final String baseUrl = 'http://192.168.0.108/ralisa_api/index.php/api/login';
 
   // Future<String> _getDeviceImei() async {
   //   final deviceInfo = DeviceInfoPlugin();
   //   final androidInfo = await deviceInfo.androidInfo;
   //   return androidInfo.id;
   // }
-
   Future<Map<String, dynamic>?> login({
     required String username,
     required String password,

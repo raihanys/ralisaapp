@@ -13,8 +13,7 @@ class LCLService {
   final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
   // final String _baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api';
   // TESTING
-  // final String _baseUrl = 'http://192.168.200.75/ralisa_api/index.php/api';
-  // final String _baseUrl = 'http://192.168.200.20/ralisa_api/index.php/api';
+  // final String _baseUrl = 'http://192.168.0.108/ralisa_api/index.php/api';
 
   Future<List<Map<String, dynamic>>?> getAllContainerNumbers() async {
     final token = await _authService.getValidToken();

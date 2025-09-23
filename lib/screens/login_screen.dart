@@ -4,6 +4,9 @@ import 'pelabuhan/main_pelabuhan.dart';
 import 'supir/main_supir.dart';
 import 'lcl/main_admlcl.dart';
 import 'warehouse/main_warehouse.dart';
+import 'warehouse_mks/main_warehouse_mks.dart';
+import 'krani_mks/main_krani_mks.dart';
+import 'kurir_mks/main_kurir_mks.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -77,11 +80,20 @@ class _LoginScreenState extends State<LoginScreen> {
       case '3': // Pelabuhan
         target = const MainPelabuhan();
         break;
-      case '4': // Admin LCL
+      case '4': // Krani LCL
         target = const MainLCL();
         break;
       case '5': // Kepala Gudang
         target = const MainWarehouse();
+        break;
+      case '6': // Warehouse Makassar
+        target = const MainWarehouseMks();
+        break;
+      case '7': // Krani Makassar
+        target = const MainKraniMks();
+        break;
+      case '8': // Kurir Makassar
+        target = const KurirMksScreen();
         break;
       default:
         setState(() => _errorMessage = 'Role tidak valid: $role');
