@@ -9,6 +9,7 @@ import 'screens/warehouse/main_warehouse.dart';
 import 'screens/warehouse_mks/main_warehouse_mks.dart';
 import 'screens/krani_mks/main_krani_mks.dart';
 import 'screens/kurir_mks/main_kurir_mks.dart';
+import 'screens/invoicer/main_invoicer.dart';
 
 void main() {
   runApp(const MyApp());
@@ -41,6 +42,8 @@ class MyApp extends StatelessWidget {
             return const MainKraniMks();
           case '8': // Kurir Makassar
             return const KurirMksScreen();
+          case '9': // Invoicer
+            return const MainInvoicer();
         }
       }
     }

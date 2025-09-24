@@ -74,6 +74,8 @@ class AuthService {
             return null;
           }
 
+          final invoicingCode = user['invoicing_code']?.toString();
+
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('username', username);
           await prefs.setString(
@@ -81,6 +83,7 @@ class AuthService {
             password,
           ); // Simpan untuk soft-refresh
           await prefs.setString('role', role); // Simpan role dari API
+          await prefs.setString('invoicing_code', invoicingCode ?? '0');
           await prefs.setString('version', version);
           await prefs.setString('token', user['token'] ?? '');
 
@@ -171,5 +174,15 @@ class AuthService {
     } catch (e) {
       return null;
     }
+  }
+
+  Future<String?> getInvoicingCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('invoicing_code');
+  }
+
+  Future<void> saveInvoicingCode(String invoicingCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('invoicing_code', invoicingCode);
   }
 }

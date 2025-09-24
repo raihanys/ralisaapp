@@ -137,44 +137,50 @@ class _ShippingContainerWarehouseMksState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            child: ListTile(
-              title: Text(
-                '${container['container_number'] ?? '-'}',
-                style: theme.textTheme.titleMedium!.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 10),
-                  Text('Seal 1: ${container['seal_number'] ?? '-'}'),
-                  Text('Seal 2: ${container['seal_number2'] ?? '-'}'),
-                  Text('Pelayaran: ${container['nama_pelayaran'] ?? '-'}'),
-                  Text('Kapal: ${container['nama_kapal'] ?? '-'}'),
-                  Text(
-                    'Tanggal Berangkat: ${_formatDate(container['tgl_berangkat'])}',
+            child: Padding(
+              padding: const EdgeInsets.all(
+                12.0,
+              ), // kasih padding ke dalam card
+              child: ListTile(
+                contentPadding: EdgeInsets.zero, // biar nggak double padding
+                title: Text(
+                  '${container['container_number'] ?? '-'}',
+                  style: theme.textTheme.titleMedium!.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              ),
-              trailing: ElevatedButton(
-                onPressed:
-                    () => _showConfirmationDialog(
-                      container['container_id'].toString(),
-                      container['container_number'] ?? '-',
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    Text('Seal 1: ${container['seal_number'] ?? '-'}'),
+                    Text('Seal 2: ${container['seal_number2'] ?? '-'}'),
+                    Text('Pelayaran: ${container['nama_pelayaran'] ?? '-'}'),
+                    Text('Kapal: ${container['nama_kapal'] ?? '-'}'),
+                    Text(
+                      'Tanggal Berangkat: ${_formatDate(container['tgl_berangkat'])}',
                     ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  ],
                 ),
-                child: const Text("Konfirmasi"),
+                trailing: ElevatedButton(
+                  onPressed:
+                      () => _showConfirmationDialog(
+                        container['container_id'].toString(),
+                        container['container_number'] ?? '-',
+                      ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text("Konfirmasi"),
+                ),
               ),
             ),
           );
