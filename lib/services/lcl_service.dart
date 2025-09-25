@@ -2,24 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'api_config.dart';
 
 class LCLService {
   final AuthService _authService = AuthService();
-
-  // PRODUCTION
-  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
-  // DEVELOPMENT
-  // final String _baseUrl = 'http://192.168.20.25/ralisa_api/index.php/api';
-  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  // final String _baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api';
-  // TESTING
-  // final String _baseUrl = 'http://192.168.0.108/ralisa_api/index.php/api';
 
   Future<List<Map<String, dynamic>>?> getAllContainerNumbers() async {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
-    final url = Uri.parse('$_baseUrl/getContainerNumberLCL?token=$token');
+    final url = Uri.parse('$baseUrl/getContainerNumberLCL?token=$token');
 
     try {
       final response = await http.get(url);
@@ -40,9 +32,9 @@ class LCLService {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
-    // Menggunakan _baseUrl untuk membangun URL
+    // Menggunakan baseUrl untuk membangun URL
     final url = Uri.parse(
-      '$_baseUrl/getLPBInfoDetail?token=$token&number_lpb_child=$numberLpbChild',
+      '$baseUrl/getLPBInfoDetail?token=$token&number_lpb_child=$numberLpbChild',
     );
 
     try {
@@ -59,7 +51,7 @@ class LCLService {
 
   String getImageUrl(String imagePath) {
     if (imagePath.isEmpty) return '';
-    String base = _baseUrl.replaceAll('/index.php/api', '');
+    String base = baseUrl.replaceAll('/index.php/api', '');
     return '$base/uploads/terima_barang/$imagePath';
   }
 
@@ -67,7 +59,7 @@ class LCLService {
     final token = await _authService.getValidToken();
     if (token == null) return null;
 
-    final url = Uri.parse('$_baseUrl/getItemDetail?token=$token');
+    final url = Uri.parse('$baseUrl/getItemDetail?token=$token');
 
     try {
       final response = await http.get(url);
@@ -88,8 +80,8 @@ class LCLService {
     final token = await _authService.getValidToken();
     if (token == null) return [];
 
-    // Menggunakan _baseUrl untuk membangun URL
-    final url = Uri.parse('$_baseUrl/getDetailTipeBarang?token=$token');
+    // Menggunakan baseUrl untuk membangun URL
+    final url = Uri.parse('$baseUrl/getDetailTipeBarang?token=$token');
 
     try {
       final response = await http.get(url);
@@ -159,7 +151,7 @@ class LCLService {
 
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$_baseUrl/store_lpb_detail'),
+      Uri.parse('$baseUrl/store_lpb_detail'),
     )..fields.addAll(fields);
 
     if (foto_terima_barang != null) {
@@ -233,8 +225,8 @@ class LCLService {
       return false;
     }
 
-    // Menggunakan _baseUrl untuk membangun URL
-    final url = Uri.parse('$_baseUrl/update_status_ready_to_ship');
+    // Menggunakan baseUrl untuk membangun URL
+    final url = Uri.parse('$baseUrl/update_status_ready_to_ship');
 
     print('updateStatusReadyToShip parameters:');
     print('numberLpbItem: $numberLpbItem');

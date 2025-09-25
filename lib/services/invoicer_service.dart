@@ -1,17 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'api_config.dart';
 
 class InvoicerService {
   final AuthService authService;
-  // PRODUCTION
-  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
-  // DEVELOPMENT
-  // final String _baseUrl = 'http://192.168.20.25/ralisa_api/index.php/api';
-  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  // final String _baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api';
-  // TESTING
-  // final String _baseUrl = 'http://192.168.0.108/ralisa_api/index.php/api';
 
   InvoicerService(this.authService);
 
@@ -40,7 +33,7 @@ class InvoicerService {
   Future<List<dynamic>> fetchInvoices(String typeInvoice) async {
     try {
       final response = await _handleRequest((token) {
-        final uri = Uri.parse('$_baseUrl/getInvoiceAll').replace(
+        final uri = Uri.parse('$baseUrl/getInvoiceAll').replace(
           queryParameters: {'token': token, 'type_invoice': typeInvoice},
         );
         return http
@@ -89,7 +82,7 @@ class InvoicerService {
       final response = await _handleRequest((token) {
         // UBAH INI: dari POST ke GET dengan query parameters
         final uri = Uri.parse(
-          '$_baseUrl/getInvoiceDetail',
+          '$baseUrl/getInvoiceDetail',
         ).replace(queryParameters: {'token': token, 'invoice_id': invoiceId});
         return http
             .get(uri, headers: {'Content-Type': 'application/json'})
@@ -141,7 +134,7 @@ class InvoicerService {
 
         return http
             .post(
-              Uri.parse('$_baseUrl/update_status_invoice'),
+              Uri.parse('$baseUrl/update_status_invoice'),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({'token': token, 'data': payload}),
             )
@@ -163,7 +156,7 @@ class InvoicerService {
   Future<List<dynamic>> fetchCSTAll(String typeInvoice) async {
     try {
       final response = await _handleRequest((token) {
-        final uri = Uri.parse('$_baseUrl/getCSTAll').replace(
+        final uri = Uri.parse('$baseUrl/getCSTAll').replace(
           queryParameters: {'token': token, 'type_invoice': typeInvoice},
         );
         return http
@@ -211,7 +204,7 @@ class InvoicerService {
     try {
       final response = await _handleRequest((token) {
         final uri = Uri.parse(
-          '$_baseUrl/getCSTDetail',
+          '$baseUrl/getCSTDetail',
         ).replace(queryParameters: {'token': token, 'ship_id': shipId});
         return http
             .get(uri, headers: {'Content-Type': 'application/json'})
@@ -263,7 +256,7 @@ class InvoicerService {
 
         return http
             .post(
-              Uri.parse('$_baseUrl/update_status_cst'),
+              Uri.parse('$baseUrl/update_status_cst'),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({'token': token, 'data': payload}),
             )

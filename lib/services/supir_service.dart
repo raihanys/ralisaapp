@@ -6,7 +6,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+import 'package:shared_preferences/shared_preferences.dart';
+import 'api_config.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -47,8 +48,6 @@ void supirOnStart(ServiceInstance service) async {
 
 class SupirService {
   final AuthService _authService;
-  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
   Timer? _timer;
 
   SupirService(this._authService) {
@@ -56,14 +55,14 @@ class SupirService {
   }
 
   // Centralized API endpoints
-  String get _attendanceStatusUrl => '$_baseUrl/get_attendance_driver';
-  String get _attendanceSubmitUrl => '$_baseUrl/driver_attendance';
-  String get _taskDriverUrl => '$_baseUrl/get_task_driver';
-  String get _driverReadyUrl => '$_baseUrl/driver_ready';
-  String get _driverArrivalUrl => '$_baseUrl/driver_arrival_input';
-  String get _driverDepartureUrl => '$_baseUrl/driver_departure_input';
-  String get _sealUrl => '$_baseUrl/get_seal_number';
-  String get _portArrivalUrl => '$_baseUrl/arrived_to_harbor';
+  String get _attendanceStatusUrl => '$baseUrl/get_attendance_driver';
+  String get _attendanceSubmitUrl => '$baseUrl/driver_attendance';
+  String get _taskDriverUrl => '$baseUrl/get_task_driver';
+  String get _driverReadyUrl => '$baseUrl/driver_ready';
+  String get _driverArrivalUrl => '$baseUrl/driver_arrival_input';
+  String get _driverDepartureUrl => '$baseUrl/driver_departure_input';
+  String get _sealUrl => '$baseUrl/get_seal_number';
+  String get _portArrivalUrl => '$baseUrl/arrived_to_harbor';
 
   Future<void> _initializeNotifications() async {
     final status = await Permission.notification.request();
@@ -482,10 +481,8 @@ class SupirService {
 
 class SupirBackgroundService {
   final AuthService _authService;
-  final String _baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-  // final String _baseUrl = 'https://api3.ralisa.co.id/index.php/api';
 
-  String get _taskDriverUrl => '$_baseUrl/get_task_driver';
+  String get _taskDriverUrl => '$baseUrl/get_task_driver';
 
   SupirBackgroundService(this._authService);
 

@@ -3,22 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 // import 'package:device_info_plus/device_info_plus.dart';
+import 'api_config.dart';
 
 class AuthService {
-  // PRODUCTION
-  // final String baseUrl = 'https://api3.ralisa.co.id/index.php/api/login';
-  // DEVELOPMENT
-  // final String baseUrl = 'http://192.168.20.25/ralisa_api/index.php/api/login';
-  final String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api/login';
-  // final String baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api/login';
-  // TESTING
-  // final String baseUrl = 'http://192.168.0.108/ralisa_api/index.php/api/login';
+  final String loginUrl = '$baseUrl/login';
 
-  // Future<String> _getDeviceImei() async {
-  //   final deviceInfo = DeviceInfoPlugin();
-  //   final androidInfo = await deviceInfo.androidInfo;
-  //   return androidInfo.id;
-  // }
   Future<Map<String, dynamic>?> login({
     required String username,
     required String password,
@@ -53,7 +42,7 @@ class AuthService {
 
       final res = await http
           .post(
-            Uri.parse(baseUrl),
+            Uri.parse(loginUrl),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(body),
           )
