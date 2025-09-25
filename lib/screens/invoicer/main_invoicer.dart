@@ -76,7 +76,7 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
         index: _currentIndex,
         children: [
           PpnInvoicer(invoicingCode: widget.invoicingCode),
-          const NonPpnInvoicer(),
+          NonPpnInvoicer(invoicingCode: widget.invoicingCode),
         ],
       ),
       bottomNavigationBar: _buildFloatingNavBar(theme),

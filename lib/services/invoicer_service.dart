@@ -159,4 +159,126 @@ class InvoicerService {
       rethrow;
     }
   }
+
+  Future<List<dynamic>> fetchCSTAll(String typeInvoice) async {
+    try {
+      final response = await _handleRequest((token) {
+        final uri = Uri.parse('$_baseUrl/getCSTAll').replace(
+          queryParameters: {'token': token, 'type_invoice': typeInvoice},
+        );
+        return http
+            .get(uri, headers: {'Content-Type': 'application/json'})
+            .timeout(const Duration(seconds: 15));
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Handle berbagai format response
+        if (data['status'] == true || data['error'] == false) {
+          // Jika data ada dan tidak kosong
+          if (data['data'] != null) {
+            if (data['data'] is List) {
+              return data['data'];
+            } else {
+              return [];
+            }
+          } else {
+            return [];
+          }
+        } else {
+          return [];
+        }
+      } else if (response.statusCode == 404) {
+        print('Endpoint CST not found (404), returning empty list');
+        return [];
+      } else {
+        throw Exception('HTTP error: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('timed out') ||
+          e.toString().contains('Connection') ||
+          e.toString().contains('404')) {
+        print('Network error CST, returning empty list: $e');
+        return [];
+      }
+      print('Error fetching CST: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchCSTDetail(String shipId) async {
+    try {
+      final response = await _handleRequest((token) {
+        final uri = Uri.parse(
+          '$_baseUrl/getCSTDetail',
+        ).replace(queryParameters: {'token': token, 'ship_id': shipId});
+        return http
+            .get(uri, headers: {'Content-Type': 'application/json'})
+            .timeout(const Duration(seconds: 15));
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == true && data['data'] != null) {
+          return data['data'];
+        } else {
+          throw Exception('Failed to fetch CST detail: ${data['message']}');
+        }
+      } else {
+        throw Exception('HTTP error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching CST detail: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> updateCSTStatus({
+    required String shipId,
+    required String paymentType,
+    String? paymentAmount,
+    String? paymentDifference,
+    String? paymentNotes,
+  }) async {
+    try {
+      final response = await _handleRequest((token) {
+        Map<String, dynamic> payload = {
+          'ship_id': int.parse(shipId),
+          'payment_type': int.parse(paymentType),
+        };
+
+        if (paymentAmount != null) {
+          payload['payment_amount'] = int.parse(
+            paymentAmount.replaceAll('.', ''),
+          );
+        }
+
+        if (paymentDifference != null) {
+          payload['is_diff'] = int.parse(paymentDifference);
+        }
+        if (paymentNotes != null && paymentNotes.isNotEmpty) {
+          payload['notes'] = paymentNotes;
+        }
+
+        return http
+            .post(
+              Uri.parse('$_baseUrl/update_status_cst'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'token': token, 'data': payload}),
+            )
+            .timeout(const Duration(seconds: 15));
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['status'] == true;
+      } else {
+        throw Exception('HTTP error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error updating CST status: $e');
+      rethrow;
+    }
+  }
 }

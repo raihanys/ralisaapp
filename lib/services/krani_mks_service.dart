@@ -35,30 +35,6 @@ class KraniMksService {
     }
   }
 
-  Future<bool> updateContainerStatus(String containerId) async {
-    final token = await _authService.getValidToken();
-    if (token == null) return false;
-
-    final url = Uri.parse('$_baseUrl/update_status_container_to_received');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'token': token,
-          'data': {'container_id': containerId},
-        }),
-      );
-
-      return response.statusCode == 200 &&
-          jsonDecode(response.body)['status'] == true;
-    } catch (e) {
-      print('Error updating container status: $e');
-      return false;
-    }
-  }
-
   Future<Map<String, dynamic>?> getLPBInfoDetail(String numberLpbChild) async {
     final token = await _authService.getValidToken();
     if (token == null) return null;
