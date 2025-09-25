@@ -90,13 +90,11 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
     switch (currentIndex) {
       case 0:
         title = 'PPN';
-        subtitle +=
-            ' - ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
+        subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
         break;
       case 1:
-        title = 'Non-PPN';
-        subtitle +=
-            ' - ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
+        title = 'Non PPN';
+        subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
         break;
     }
 
@@ -180,7 +178,7 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
             BottomNavigationBarItem(
               icon: Icon(Icons.receipt_outlined),
               activeIcon: Icon(Icons.receipt),
-              label: 'Non-PPN',
+              label: 'Non PPN',
             ),
           ],
         ),

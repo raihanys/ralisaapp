@@ -96,9 +96,23 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal memproses invoice: $e')));
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Gagal'),
+            content: Text('Gagal memproses invoice: $e'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
     }
   }
 
@@ -147,7 +161,7 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                   children: [
                     const SizedBox(height: 16),
                     Text(
-                      "Tidak ada invoice untuk di-proses",
+                      "Tidak ada tagihan untuk di-proses",
                       style: theme.textTheme.titleMedium!.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
@@ -353,30 +367,46 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
     }
   }
 
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Kesalahan'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _handleSave() {
     if (_selectedPaymentType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih metode pembayaran terlebih dahulu'),
-        ),
-      );
+      _showErrorDialog('Pilih metode pembayaran terlebih dahulu');
       return;
     }
 
     if (_selectedPaymentType == '1' && _amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masukkan jumlah pembayaran')),
-      );
+      _showErrorDialog('Masukkan jumlah pembayaran');
       return;
     }
 
-    // Validasi jika tunai dan ada selisih, notes harus diisi
+    if (_selectedPaymentType == '1' && _selectedDifference == null) {
+      _showErrorDialog('Pilih status selisih pembayaran');
+      return;
+    }
+
     if (_selectedPaymentType == '1' &&
         _selectedDifference == '1' &&
         _notesController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Harap isi keterangan selisih')),
-      );
+      _showErrorDialog('Harap isi keterangan selisih');
       return;
     }
 
