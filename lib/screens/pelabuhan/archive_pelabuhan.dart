@@ -327,7 +327,7 @@ class ArchivePelabuhan extends StatelessWidget {
                     ],
                   );
                 }
-                return Container(height: 50, child: Center(child: body));
+                return Container(height: 60, child: Center(child: body));
               },
             ),
             onRefresh: () async {

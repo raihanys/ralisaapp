@@ -2,17 +2,29 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-// import 'package:device_info_plus/device_info_plus.dart';
 import 'api_config.dart';
+
+// For getting device IMEI (Actived in Production)
+// import 'package:device_info_plus/device_info_plus.dart';
 
 class AuthService {
   final String loginUrl = '$baseUrl/login';
+
+  // For getting device IMEI (Actived in Production)
+  // Future<String> _getDeviceImei() async {
+  //   final deviceInfo = DeviceInfoPlugin();
+  //   final androidInfo = await deviceInfo.androidInfo;
+  //   return androidInfo.id;
+  // }
 
   Future<Map<String, dynamic>?> login({
     required String username,
     required String password,
   }) async {
+    // Dummy IMEI (Actived in Testing)
     final imei = 'ac9ba078-0a12-45ad-925b-2d761ad9770f';
+
+    // For getting device IMEI (Actived in Production)
     // final imei = await _getDeviceImei();
 
     return await _attemptLogin(

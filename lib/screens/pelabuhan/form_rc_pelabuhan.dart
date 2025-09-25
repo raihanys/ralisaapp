@@ -5,8 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../services/auth_service.dart';
-import '../services/pelabuhan_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/pelabuhan_service.dart';
+import '../../services/api_config.dart';
 
 class FormPelabuhanScreen extends StatefulWidget {
   final dynamic order;
@@ -21,14 +22,8 @@ class _FormPelabuhanScreenState extends State<FormPelabuhanScreen> {
   final TextEditingController _containerController = TextEditingController();
   final TextEditingController _sealController = TextEditingController();
   final TextEditingController _seal2Controller = TextEditingController();
-  // final String _ordersUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/get_new_salesorder_for_krani_pelabuhan';
-  final String _ordersUrl =
-      'https://api3.ralisa.co.id/index.php/api/get_new_salesorder_for_krani_pelabuhan';
-  // final String _sealUrl =
-  //     'http://192.168.20.65/ralisa_api/index.php/api/get_seal_number';
-  final String _sealUrl =
-      'https://api3.ralisa.co.id/index.php/api/get_seal_number';
+  final String _ordersUrl = '$baseUrl/get_new_salesorder_for_krani_pelabuhan';
+  final String _sealUrl = '$baseUrl/get_seal_number';
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
   String? _namaPetugas;
