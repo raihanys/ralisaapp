@@ -410,6 +410,22 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
       return;
     }
 
+    // Validasi jika ada selisih, jumlah bayar tidak boleh sama dengan total
+    if (_selectedPaymentType == '1' && _selectedDifference == '1') {
+      final totalAmountString = widget.invoice['total']?.toString() ?? '0';
+      final totalAmount = int.tryParse(totalAmountString) ?? 0;
+
+      final paymentAmountString = _amountController.text.replaceAll('.', '');
+      final paymentAmount = int.tryParse(paymentAmountString) ?? 0;
+
+      if (paymentAmount == totalAmount) {
+        _showErrorDialog(
+          'Jumlah pembayaran tidak boleh sama dengan total tagihan jika memilih opsi "Selisih".',
+        );
+        return;
+      }
+    }
+
     setState(() {
       _isLoading = true;
     });

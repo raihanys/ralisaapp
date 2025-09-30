@@ -79,6 +79,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
   final LCLService _lclService = LCLService();
 
   // Controllers
+  final TextEditingController _penerimaController = TextEditingController();
   final TextEditingController _noLpbController = TextEditingController();
   final TextEditingController _kodebarangController = TextEditingController();
   final TextEditingController _urutanbarangController = TextEditingController();
@@ -164,6 +165,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
   void dispose() {
     _clearContainerSelection();
     _controller.dispose();
+    _penerimaController.dispose();
     _noLpbController.dispose();
     _kodebarangController.dispose();
     _urutanbarangController.dispose();
@@ -468,11 +470,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
       setState(() => _isLoading = false);
 
       if (lpbData == null || lpbData['data'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data LPB tidak ditemukan')),
+        _showErrorDialog(
+          context,
+          'Data Tidak Ditemukan',
+          'Data LPB tidak ditemukan',
         );
-        _controller.start();
-        _scannedBarcode = null;
         return;
       }
 
@@ -496,6 +498,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
         return; // Hentikan proses
       }
 
+      _penerimaController.text =
+          (data['nama_penerima'] ?? '').toString().trim();
       _noLpbController.text = (data['nomor_lpb'] ?? '').toString().trim();
       _kodebarangController.text =
           (data['code_barang'] ?? '').toString().trim();
@@ -617,11 +621,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      _controller.start();
-      _scannedBarcode = null;
+      _showErrorDialog(context, 'Error', 'Terjadi kesalahan: ${e.toString()}');
     }
   }
 
@@ -688,6 +688,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      _buildReadOnlyField('Penerima', _penerimaController),
+                      const SizedBox(height: 10),
                       _buildReadOnlyField('No. LPB', _noLpbController),
                       const SizedBox(height: 10),
                       _buildReadOnlyField('Kode Barang', _kodebarangController),
@@ -1456,13 +1458,15 @@ class _ContainerScreenState extends State<ContainerScreen> {
                         },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
                         ),
                         child:
                             _isLoading
                                 ? const CircularProgressIndicator(
                                   color: Colors.white,
                                 )
-                                : const Text('Simpan Data'),
+                                : const Text('Submit'),
                       ),
 
                       const SizedBox(height: 10),

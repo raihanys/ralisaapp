@@ -238,19 +238,11 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       setState(() => _isLoading = false);
 
       if (lpbData == null || lpbData['data'] == null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-              const SnackBar(content: Text('Data barang tidak ditemukan')),
-            )
-            .closed
-            .then((_) {
-              if (mounted) {
-                _controller
-                    .start(); // Aktifkan scanner setelah snackbar tertutup
-              }
-            });
-        _scannedBarcode = null;
-        _codeBarang = null;
+        _showErrorDialog(
+          context,
+          'Data Tidak Ditemukan',
+          'Data barang tidak ditemukan',
+        );
         return;
       }
 
@@ -280,16 +272,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       _codeBarang = null;
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')))
-          .closed
-          .then((_) {
-            if (mounted) {
-              _controller.start(); // Aktifkan scanner setelah snackbar tertutup
-            }
-          });
-      _scannedBarcode = null;
-      _codeBarang = null;
+      _showErrorDialog(context, 'Error', 'Terjadi kesalahan: ${e.toString()}');
     }
   }
 
