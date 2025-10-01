@@ -4,6 +4,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import '../../services/lcl_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 // Model disertakan langsung di sini untuk kemudahan
@@ -253,13 +255,38 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   Future<void> _pickImage(ImageSource source) async {
     try {
       final pickedFile = await _imagePicker.pickImage(source: source);
-      if (pickedFile != null) {
-        setState(() {
-          _fotoFile = File(pickedFile.path);
-        });
+      if (pickedFile == null)
+        return; // Batal jika pengguna tidak memilih gambar
+
+      // 1. Dapatkan path asli dan siapkan path target untuk file terkompresi
+      final sourcePath = pickedFile.path;
+      final tempDir = await getTemporaryDirectory();
+      final targetPath =
+          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // 2. Kompres gambar
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        sourcePath,
+        targetPath,
+        quality: 90, // Kualitas awal 90%
+      );
+
+      // Jika kompresi gagal, hentikan fungsi
+      if (compressedFile == null) {
+        print('Kompresi gambar gagal.');
+        return;
       }
+
+      // 3. Set file yang sudah dikompres ke state
+      setState(() {
+        _fotoFile = File(compressedFile.path);
+      });
     } catch (e) {
-      print('Error picking image: $e');
+      print('Error picking and compressing image: $e');
+      // Tampilkan pesan error ke pengguna jika perlu
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal memproses gambar: $e')));
     }
   }
 
