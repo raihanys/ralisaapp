@@ -47,6 +47,19 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
 
   List<ContainerSuggestion> _allContainers = [];
 
+  String? _currentLpbHeader;
+  int _totalItemsInLpb = 0;
+  // Using a Set ensures we only store unique barcode scans
+  final Set<String> _scannedLpbItems = {};
+
+  String _getLpbHeader(String fullBarcode) {
+    int lastSlashIndex = fullBarcode.lastIndexOf('/');
+    if (lastSlashIndex != -1) {
+      return fullBarcode.substring(0, lastSlashIndex);
+    }
+    return fullBarcode; // Fallback if format is unexpected
+  }
+
   @override
   void initState() {
     super.initState();
@@ -248,6 +261,20 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
 
       final data = lpbData['data'] as Map<String, dynamic>;
 
+      final String lpbHeader = _getLpbHeader(scannedBarcode);
+      final int totalItems =
+          int.tryParse(data['total_barang']?.toString() ?? '0') ?? 0;
+
+      // Check if this is a new LPB header
+      if (lpbHeader != _currentLpbHeader) {
+        print("New LPB detected. Resetting tracking.");
+        setState(() {
+          _currentLpbHeader = lpbHeader;
+          _totalItemsInLpb = totalItems;
+          _scannedLpbItems.clear(); // Reset for the new LPB
+        });
+      }
+
       final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
       if (status != 4) {
         _showErrorDialog(
@@ -351,41 +378,82 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
             }
 
             try {
+              final String currentBarcode = _scannedBarcode!;
+
               final success = await _lclService.updateStatusReadyToShip(
-                numberLpbItem: _scannedBarcode!,
+                numberLpbItem: currentBarcode,
                 containerNumber: containerId,
               );
 
               if (mounted) {
-                Navigator.pop(context); // Tutup dialog konfirmasi
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: Text(success ? 'Berhasil' : 'Gagal'),
-                        content: Text(
-                          success
-                              ? 'Status berhasil diubah ke Ready to Ship'
-                              : 'Gagal mengubah status',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              if (mounted) {
-                                _controller
-                                    .start(); // Aktifkan scanner setelah dialog status tertutup
-                              }
-                            },
-                            child: const Text('OK'),
+                Navigator.pop(context);
+
+                if (success) {
+                  _scannedLpbItems.add(currentBarcode);
+                }
+
+                if (success &&
+                    _scannedLpbItems.length >= _totalItemsInLpb &&
+                    _totalItemsInLpb > 0) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder:
+                        (context) => AlertDialog(
+                          title: const Text('LPB Selesai'),
+                          content: Text(
+                            'Semua $_totalItemsInLpb barang untuk LPB $_currentLpbHeader telah berhasil di-ship.',
                           ),
-                        ],
-                      ),
-                );
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _currentLpbHeader = null;
+                                  _totalItemsInLpb = 0;
+                                  _scannedLpbItems.clear();
+                                });
+                                Navigator.of(context).pop();
+                                if (mounted) {
+                                  // Aktifkan scanner setelah dialog selesai tertutup
+                                  _controller.start();
+                                }
+                              },
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                  );
+                } else {
+                  // Belum selesai, tampilkan pesan sukses/gagal standar
+                  showDialog(
+                    context: context,
+                    builder:
+                        (context) => AlertDialog(
+                          title: Text(success ? 'Berhasil' : 'Gagal'),
+                          content: Text(
+                            success
+                                ? 'Status berhasil diubah ke Ready to Ship. Sisa ${_totalItemsInLpb - _scannedLpbItems.length} barang lagi.'
+                                : 'Gagal mengubah status',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                if (mounted) {
+                                  _controller
+                                      .start(); // Aktifkan scanner setelah dialog status tertutup
+                                }
+                              },
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                  );
+                }
               }
             } catch (e) {
               if (mounted) {
-                Navigator.pop(context); // Tutup dialog konfirmasi
+                Navigator.pop(context); // Tutup dialog konfirmasi jika error
                 showDialog(
                   context: context,
                   builder:

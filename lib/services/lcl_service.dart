@@ -28,6 +28,28 @@ class LCLService {
     }
   }
 
+  Future<Map<String, dynamic>?> getLPBInfo(String numberLpb) async {
+    final token = await _authService.getValidToken();
+    if (token == null) return null;
+
+    final url = Uri.parse(
+      '$baseUrl/getLPBInfo?token=$token&number_lpb=$numberLpb',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Error getting LPB Info: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Exception in getLPBInfo: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> getLPBInfoDetail(String numberLpbChild) async {
     final token = await _authService.getValidToken();
     if (token == null) return null;

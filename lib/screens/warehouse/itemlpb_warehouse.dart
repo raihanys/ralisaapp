@@ -1,29 +1,34 @@
 import 'package:flutter/material.dart';
 import '../../services/warehouse_service.dart';
-import '../../services/auth_service.dart';
 
 class ItemLpbWarehouse extends StatefulWidget {
   final String noLpb;
+  final String totalQty;
+  final String totalWeight;
+  final String totalVolume;
 
-  const ItemLpbWarehouse({Key? key, required this.noLpb}) : super(key: key);
+  const ItemLpbWarehouse({
+    Key? key,
+    required this.noLpb,
+    required this.totalQty,
+    required this.totalWeight,
+    required this.totalVolume,
+  }) : super(key: key);
 
   @override
   _ItemLpbWarehouseState createState() => _ItemLpbWarehouseState();
 }
 
 class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
-  late AuthService _authService;
   late WarehouseService _warehouseService;
   List<Map<String, dynamic>> _items = [];
   bool _isLoading = true;
-  TextEditingController _notesController = TextEditingController();
   List<bool> _checkedItems = [];
 
   @override
   void initState() {
     super.initState();
     _warehouseService = WarehouseService();
-    _authService = AuthService();
     _fetchItems();
   }
 
@@ -33,8 +38,16 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
       final items = await _warehouseService.getLPBItemDetail(widget.noLpb);
       setState(() {
         _items = items ?? [];
+        // Logika checklist diubah sesuai permintaan
         _checkedItems =
             _items.map((item) {
+              // Mengambil status barang, default ke string kosong jika null
+              final status = item['status_kondisi_barang']?.toString() ?? '';
+
+              // Kondisi untuk status yang tidak diinginkan
+              final isStatusUnwanted =
+                  status == 'Barang Kurang' || status == 'Rusak Tidak Dikirim';
+
               final length =
                   double.tryParse(item['length']?.toString() ?? '0') ?? 0;
               final width =
@@ -43,7 +56,18 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                   double.tryParse(item['height']?.toString() ?? '0') ?? 0;
               final weight =
                   double.tryParse(item['weight']?.toString() ?? '0') ?? 0;
-              return length > 0 && width > 0 && height > 0 && weight > 0;
+              final volume =
+                  double.tryParse(item['volume']?.toString() ?? '0') ?? 0;
+
+              // Checkbox akan dicentang HANYA JIKA:
+              // 1. Semua dimensi, berat, dan volume valid (> 0)
+              // 2. DAN statusnya BUKAN 'Kurang' atau 'Rusak Tidak dikirim'
+              return length > 0 &&
+                  width > 0 &&
+                  height > 0 &&
+                  weight > 0 &&
+                  volume > 0 &&
+                  !isStatusUnwanted; // Tambahan kondisi
             }).toList();
         _isLoading = false;
       });
@@ -55,73 +79,24 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
     }
   }
 
-  Future<void> _processData() async {
-    // Cek minimal ada 1 item yang dipilih
-    if (!_checkedItems.contains(true)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih minimal 1 item terlebih dahulu')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    final token = await _authService.getValidToken();
-
-    if (token == null) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token tidak valid, silakan login ulang')),
-      );
-      return;
-    }
-
-    bool success = true;
-    final notes = _notesController.text;
-
-    // Kumpulkan ID barang yang dicentang
-    final List<String> selectedIds = [];
-    for (int i = 0; i < _items.length; i++) {
-      if (_checkedItems[i]) {
-        final barangId = _items[i]['tt_barang_id']?.toString();
-        if (barangId == null || barangId.isEmpty) {
-          debugPrint("ID barang kosong untuk index $i");
-          success = false;
-        } else {
-          selectedIds.add(barangId);
-        }
-      }
-    }
-
-    // PERBAIKAN: Pindahkan panggilan bulk update ke LUAR loop
-    if (selectedIds.isNotEmpty) {
-      // Sesuaikan format data dengan kebutuhan backend
-      final List<Map<String, dynamic>> payloadData =
-          selectedIds.map((id) {
-            return {"id": int.tryParse(id) ?? 0}; // Konversi ke integer
-          }).toList();
-
-      final result = await _warehouseService.updateBulkStatusConfirmed(
-        token: token,
-        numberLpbItem: widget.noLpb, // Gunakan parameter yang benar
-        data: payloadData, // Kirim data dalam format yang diminta
-        notes: notes,
-      );
-
-      if (!result) success = false;
-    }
-
-    setState(() => _isLoading = false);
-
-    if (success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Data berhasil diproses')));
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Beberapa item gagal diproses')),
-      );
-    }
+  Widget _buildInfoChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.only(right: 8, bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.red[50], // Ubah warna agar berbeda dengan main warehouse
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade100!),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          color: Colors.black87,
+        ),
+      ),
+    );
   }
 
   @override
@@ -163,7 +138,7 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Text(
-                    'Detail LPB: ${widget.noLpb}',
+                    widget.noLpb,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -198,13 +173,15 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                           child: Table(
                             columnWidths: const {
                               0: FixedColumnWidth(60),
-                              1: FixedColumnWidth(120),
-                              2: FixedColumnWidth(60),
-                              3: FixedColumnWidth(60),
-                              4: FixedColumnWidth(60),
-                              5: FixedColumnWidth(60),
-                              6: FixedColumnWidth(60),
-                              7: FixedColumnWidth(60),
+                              1: FixedColumnWidth(160), // Lebar disesuaikan
+                              2: FixedColumnWidth(70),
+                              3: FixedColumnWidth(70),
+                              4: FixedColumnWidth(70),
+                              5: FixedColumnWidth(70),
+                              6: FixedColumnWidth(100),
+                              7: FixedColumnWidth(120),
+                              8: FixedColumnWidth(60), // Kolom checklist
+                              // Kolom '+' Dihapus
                             },
                             border: TableBorder.all(
                               color: Colors.grey.shade300,
@@ -223,8 +200,11 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                   _HeaderCell('L'),
                                   _HeaderCell('T'),
                                   _HeaderCell('Berat'),
-                                  _HeaderCell('✓'),
-                                  _HeaderCell('+'),
+                                  _HeaderCell('Volume'),
+                                  _HeaderCell('Status'),
+                                  _HeaderCell(
+                                    '',
+                                  ), // Ubah header '+' jadi Status
                                 ],
                               ),
 
@@ -254,61 +234,27 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                     _BodyCell(
                                       item['weight']?.toString() ?? '-',
                                     ),
+                                    _BodyCell(
+                                      item['volume']?.toString() ?? '-',
+                                    ),
+                                    _BodyCell(
+                                      item['status_kondisi_barang']
+                                              ?.toString() ??
+                                          '-',
+                                    ),
                                     Container(
                                       height: 72,
                                       alignment: Alignment.center,
+                                      // CHECKBOX READ-ONLY
                                       child: Checkbox(
                                         value: _checkedItems[index],
-                                        onChanged: (value) {
-                                          setState(
-                                            () => _checkedItems[index] = value!,
-                                          );
-                                        },
+                                        onChanged: null, // Membuatnya read-only
+                                        activeColor:
+                                            Colors
+                                                .green, // Memberi warna pada status true
                                       ),
                                     ),
-                                    Container(
-                                      height: 72,
-                                      alignment: Alignment.center,
-                                      child: ElevatedButton(
-                                        onPressed: () {
-                                          final code =
-                                              item['barang_kode'] ?? '';
-                                          if (code.isNotEmpty) {
-                                            setState(() {
-                                              if (_notesController
-                                                  .text
-                                                  .isNotEmpty) {
-                                                _notesController.text += ', ';
-                                              }
-                                              _notesController.text += code;
-                                            });
-                                          }
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          minimumSize: Size.zero,
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          '+',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                    // Kolom Tombol '+' Dihapus
                                   ],
                                 );
                               }),
@@ -318,57 +264,28 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                       ),
                     ),
 
-                    // Notes section
                     const SizedBox(height: 20),
-                    const Text(
-                      'Catatan:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _notesController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Tambahkan catatan...',
-                      ),
-                    ),
 
-                    // Action Buttons
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
                       children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: const Text('Kembali'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _processData,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child:
-                                _isLoading
-                                    ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : const Text('Proses'),
-                          ),
-                        ),
+                        _buildInfoChip('Total QTY', widget.totalQty),
+                        _buildInfoChip('Total Berat', widget.totalWeight),
+                        _buildInfoChip('Total Volume', widget.totalVolume),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Kembali'),
+                      ),
                     ),
                   ],
                 ),
@@ -384,9 +301,8 @@ class _HeaderCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 48, // bikin tinggi seragam
-    alignment:
-        alignLeft ? Alignment.centerLeft : Alignment.center, // middle align
+    height: 48,
+    alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
     padding: const EdgeInsets.symmetric(horizontal: 8.0),
     child: Text(
       text,
@@ -403,9 +319,8 @@ class _BodyCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 72, // tinggi seragam biar center rapi
-    alignment:
-        alignLeft ? Alignment.centerLeft : Alignment.center, // middle align
+    height: 72,
+    alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
     padding: const EdgeInsets.symmetric(horizontal: 8.0),
     child: Text(text, textAlign: alignLeft ? TextAlign.left : TextAlign.center),
   );

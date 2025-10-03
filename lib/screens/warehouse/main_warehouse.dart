@@ -186,6 +186,26 @@ class _MainWarehouseState extends State<MainWarehouse> {
     );
   }
 
+  // FUNGSI BARU UNTUK MEMBANGUN CHIP INFORMASI
+  Widget _buildInfoChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.only(right: 8), // Memberi jarak antar chip
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -229,9 +249,9 @@ class _MainWarehouseState extends State<MainWarehouse> {
                     Expanded(
                       child: Text(
                         item['no_lpb'] ?? 'No LPB',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -246,7 +266,7 @@ class _MainWarehouseState extends State<MainWarehouse> {
                       ),
                       child: Text(
                         statusText,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                           fontSize: 12,
@@ -265,15 +285,30 @@ class _MainWarehouseState extends State<MainWarehouse> {
                   'Penerima: ${item['receiver'] ?? '-'}',
                   style: const TextStyle(fontSize: 14),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      'Jumlah: ${item['total_item'] ?? '0'} item',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    // Menggunakan Wrap untuk tampilan info yang lebih fleksibel
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8.0, // Jarak horizontal antar chip
+                        runSpacing: 8.0, // Jarak vertikal antar baris chip
+                        children: [
+                          _buildInfoChip(
+                            'QTY',
+                            '${item['total_item'] ?? '0'} item',
+                          ),
+                          _buildInfoChip(
+                            'Berat',
+                            '${item['weight'] ?? '0'} kg',
+                          ),
+                          _buildInfoChip(
+                            'Volume',
+                            '${item['volume'] ?? '0'} m3',
+                          ),
+                        ],
                       ),
                     ),
                     ElevatedButton(
@@ -289,8 +324,12 @@ class _MainWarehouseState extends State<MainWarehouse> {
                           context,
                           MaterialPageRoute(
                             builder:
-                                (context) =>
-                                    ItemLpbWarehouse(noLpb: item['no_lpb']),
+                                (context) => ItemLpbWarehouse(
+                                  noLpb: item['no_lpb'],
+                                  totalQty: '${item['total_item'] ?? '0'} item',
+                                  totalWeight: '${item['weight'] ?? '0'} kg',
+                                  totalVolume: '${item['volume'] ?? '0'} m3',
+                                ),
                           ),
                         ).then((shouldRefresh) {
                           if (shouldRefresh == true) {
@@ -298,7 +337,7 @@ class _MainWarehouseState extends State<MainWarehouse> {
                           }
                         });
                       },
-                      child: const Text("Proses"),
+                      child: const Text("View"),
                     ),
                   ],
                 ),

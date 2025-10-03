@@ -125,6 +125,19 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   String? _fotoUrl;
 
+  // LPB TRACKING
+  String? _currentLpbHeader;
+  int _totalItemsInLpb = 0;
+  final Set<String> _scannedLpbItems = {};
+
+  String _getLpbHeader(String fullBarcode) {
+    int lastSlashIndex = fullBarcode.lastIndexOf('/');
+    if (lastSlashIndex != -1) {
+      return fullBarcode.substring(0, lastSlashIndex);
+    }
+    return fullBarcode;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -355,6 +368,19 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       }
 
       final data = lpbData['data'] as Map<String, dynamic>;
+
+      final String lpbHeader = _getLpbHeader(scannedBarcode);
+      final int totalItems =
+          int.tryParse(data['total_barang']?.toString() ?? '0') ?? 0;
+
+      if (lpbHeader != _currentLpbHeader) {
+        print("New LPB detected. Resetting tracking.");
+        setState(() {
+          _currentLpbHeader = lpbHeader;
+          _totalItemsInLpb = totalItems;
+          _scannedLpbItems.clear();
+        });
+      }
 
       final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
       if (status >= 5) {
@@ -1186,8 +1212,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                           .trim();
                                 }
                               } else {
-                                // If user typed, combine selected packaging and typed cleaned name
-                                // Ensure packaging is selected if not from suggestion
                                 if (_selectedPackaging == null ||
                                     _selectedPackaging!.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1221,9 +1245,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                   _fotoUrl == null &&
                                   _showFotoUpload;
 
+                              final String currentBarcode =
+                                  _kodebarangController.text.trim();
+
                               final success = await _lclService.saveLPBDetail(
-                                number_lpb_item:
-                                    _kodebarangController.text.trim(),
+                                number_lpb_item: currentBarcode,
                                 weight: _beratController.text.trim(),
                                 height: _tinggiController.text.trim(),
                                 length: _panjangController.text.trim(),
@@ -1241,37 +1267,74 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               );
 
                               if (mounted) {
+                                if (success) {
+                                  _scannedLpbItems.add(currentBarcode);
+                                }
+
                                 Navigator.of(context).pop();
 
-                                showDialog(
-                                  context: context,
-                                  builder:
-                                      (context) => AlertDialog(
-                                        title: Text(
-                                          success ? 'Berhasil' : 'Gagal',
-                                        ),
-                                        content: Text(
-                                          success
-                                              ? 'Data berhasil disimpan ke Warehouse'
-                                              : 'Gagal menyimpan data',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed:
-                                                () =>
-                                                    Navigator.of(
-                                                      context,
-                                                    ).pop(), // tutup popup
-                                            child: const Text('OK'),
+                                if (success &&
+                                    _scannedLpbItems.length >=
+                                        _totalItemsInLpb &&
+                                    _totalItemsInLpb > 0) {
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder:
+                                        (context) => AlertDialog(
+                                          title: const Text('LPB Selesai'),
+                                          content: Text(
+                                            'Semua $_totalItemsInLpb barang untuk LPB $_currentLpbHeader telah berhasil diproses.',
                                           ),
-                                        ],
-                                      ),
-                                ).then((_) {
-                                  if (mounted) {
-                                    _controller
-                                        .start(); // Aktifkan scanner setelah dialog tertutup
-                                  }
-                                });
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                // Reset state and go home
+                                                setState(() {
+                                                  _currentLpbHeader = null;
+                                                  _totalItemsInLpb = 0;
+                                                  _scannedLpbItems.clear();
+                                                });
+                                                // This pops all routes until the first one (homescreen)
+                                                Navigator.of(context).popUntil(
+                                                  (route) => route.isFirst,
+                                                );
+                                              },
+                                              child: const Text('OK'),
+                                            ),
+                                          ],
+                                        ),
+                                  );
+                                } else {
+                                  showDialog(
+                                    context: context,
+                                    builder:
+                                        (context) => AlertDialog(
+                                          title: Text(
+                                            success ? 'Berhasil' : 'Gagal',
+                                          ),
+                                          content: Text(
+                                            success
+                                                ? 'Data berhasil disimpan ke Warehouse'
+                                                : 'Gagal menyimpan data',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed:
+                                                  () =>
+                                                      Navigator.of(
+                                                        context,
+                                                      ).pop(), // tutup popup
+                                              child: const Text('OK'),
+                                            ),
+                                          ],
+                                        ),
+                                  ).then((_) {
+                                    if (mounted) {
+                                      _controller.start();
+                                    }
+                                  });
+                                }
                               }
                             } catch (e) {
                               if (mounted) {
