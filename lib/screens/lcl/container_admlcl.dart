@@ -154,6 +154,176 @@ class _ContainerScreenState extends State<ContainerScreen> {
     return fullBarcode;
   }
 
+  List<Map<String, dynamic>> _bulkUpdateCandidates = [];
+  bool _showBulkUpdateSection = false;
+  Set<String> _selectedBulkItems = Set<String>();
+
+  Future<void> _loadBulkUpdateCandidates(String currentBarcode) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final String lpbHeader = _getLpbHeader(currentBarcode);
+      final lpbInfo = await _lclService.getLPBInfo(lpbHeader);
+
+      if (lpbInfo != null && lpbInfo['items'] is List) {
+        final List<dynamic> items = lpbInfo['items'];
+
+        // Filter barang dengan status_barang = 1 dan bukan yang sedang di-scan
+        final candidates =
+            items
+                .where((item) {
+                  final String statusBarang =
+                      item['status_barang']?.toString() ?? '';
+                  final String barangKode =
+                      item['barang_kode']?.toString() ?? '';
+                  return statusBarang == '1' && barangKode != currentBarcode;
+                })
+                .cast<Map<String, dynamic>>()
+                .toList();
+
+        setState(() {
+          _bulkUpdateCandidates = candidates;
+          _showBulkUpdateSection = candidates.isNotEmpty;
+          _selectedBulkItems.clear();
+        });
+      }
+    } catch (e) {
+      print('Error loading bulk update candidates: $e');
+      setState(() {
+        _bulkUpdateCandidates = [];
+        _showBulkUpdateSection = false;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _performBulkUpdate() async {
+    if (_selectedBulkItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih minimal satu barang untuk diupdate'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Siapkan data yang sama dengan barang yang sedang di-scan
+      String namaBarangToSend;
+      if (_isNamaFromSuggestion && _selectedBarangId != null) {
+        ItemSuggestion? selectedItem;
+        try {
+          selectedItem = _allItems.firstWhere(
+            (element) => element.id == _selectedBarangId,
+          );
+        } catch (e) {
+          print(
+            "Item with ID $_selectedBarangId not found in the master list.",
+          );
+        }
+
+        if (selectedItem != null) {
+          namaBarangToSend = selectedItem.originalName;
+        } else {
+          if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Mohon pilih kemasan barang.')),
+            );
+            setState(() => _isLoading = false);
+            return;
+          }
+          namaBarangToSend =
+              '${_selectedPackaging!} ${_namaController.text}'.trim();
+        }
+      } else {
+        if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mohon pilih kemasan barang.')),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+        namaBarangToSend =
+            '${_selectedPackaging!} ${_namaController.text}'.trim();
+      }
+
+      String? statusValue;
+      if (_selectedCondition == 'Kurang') {
+        statusValue = '1';
+      } else if (_selectedCondition == 'Rusak (Tidak Dikirim)') {
+        statusValue = '2';
+      } else if (_selectedCondition == 'Rusak (Dikirim)') {
+        statusValue = '3';
+      }
+
+      bool shouldDeletePhoto =
+          _fotoFile == null && _fotoUrl == null && _showFotoUpload;
+
+      final prefs = await SharedPreferences.getInstance();
+      final containerId = prefs.getString('container_id');
+
+      final success = await _lclService.saveMultipleLPBDetail(
+        numberLpbItems: _selectedBulkItems.toList(),
+        weight: _beratController.text.trim(),
+        height: _tinggiController.text.trim(),
+        length: _panjangController.text.trim(),
+        width: _lebarController.text.trim(),
+        nama_barang: namaBarangToSend,
+        tipe_barang: _selectedTipeId!,
+        barang_id: _selectedBarangId,
+        container_number: containerId,
+        status: statusValue,
+        keterangan:
+            _keteranganController.text.isNotEmpty
+                ? _keteranganController.text
+                : null,
+        foto_terima_barang: _fotoFile,
+        deleteExistingFoto: shouldDeletePhoto,
+      );
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Berhasil update ${_selectedBulkItems.length} barang',
+              ),
+            ),
+          );
+
+          // Reset selection
+          setState(() {
+            _selectedBulkItems.clear();
+            _showBulkUpdateSection = false;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal update beberapa barang')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -519,6 +689,10 @@ class _ContainerScreenState extends State<ContainerScreen> {
       _showKeteranganField = false;
       _fotoFile = null;
       _fotoUrl = null;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadBulkUpdateCandidates(scannedBarcode);
     });
 
     try {
@@ -1343,6 +1517,124 @@ class _ContainerScreenState extends State<ContainerScreen> {
                         ),
                       ],
                       const SizedBox(height: 20),
+
+                      if (_showBulkUpdateSection) ...[
+                        const SizedBox(height: 20),
+                        Card(
+                          color: Colors.blue[50],
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.group_work,
+                                      color: Colors.blue,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Bulk Update Barang Lainnya',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () {
+                                        setModalState(() {
+                                          _showBulkUpdateSection = false;
+                                          _selectedBulkItems.clear();
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Pilih barang dengan nomor LPB sama untuk diupdate dengan data yang sama:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // List barang kandidat
+                                Container(
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 150,
+                                  ),
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: _bulkUpdateCandidates.length,
+                                    itemBuilder: (context, index) {
+                                      final item = _bulkUpdateCandidates[index];
+                                      final barangKode =
+                                          item['barang_kode']?.toString() ?? '';
+                                      final isSelected = _selectedBulkItems
+                                          .contains(barangKode);
+
+                                      return CheckboxListTile(
+                                        value: isSelected,
+                                        onChanged: (bool? value) {
+                                          setModalState(() {
+                                            if (value == true) {
+                                              _selectedBulkItems.add(
+                                                barangKode,
+                                              );
+                                            } else {
+                                              _selectedBulkItems.remove(
+                                                barangKode,
+                                              );
+                                            }
+                                          });
+                                        },
+                                        title: Text(
+                                          barangKode,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        dense: true,
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed:
+                                      _selectedBulkItems.isEmpty
+                                          ? null
+                                          : _performBulkUpdate,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      40,
+                                    ),
+                                  ),
+                                  child:
+                                      _isLoading
+                                          ? const CircularProgressIndicator(
+                                            color: Colors.white,
+                                          )
+                                          : Text(
+                                            'Update ${_selectedBulkItems.length} Barang',
+                                          ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 20),
+
                       ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
