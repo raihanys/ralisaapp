@@ -4,6 +4,7 @@ import '../login_screen.dart';
 import 'warehouse_admlcl.dart';
 import 'container_admlcl.dart';
 import 'shipping_admlcl.dart';
+import 'to_warehouse_admlcl.dart';
 
 class MainLCL extends StatefulWidget {
   const MainLCL({super.key});
@@ -80,60 +81,7 @@ class _MainLCLState extends State<MainLCL> {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 3,
-              mainAxisSpacing: 20,
-              crossAxisSpacing: 20,
-              padding: const EdgeInsets.all(20),
-              childAspectRatio: 0.8,
-              children: [
-                _buildMenuCard(
-                  context,
-                  Icons.warehouse,
-                  'Warehouse',
-                  Colors.green,
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const WarehouseScreen()),
-                  ),
-                ),
-                _buildMenuCard(
-                  context,
-                  Icons.local_shipping,
-                  'Container',
-                  Colors.orange,
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ContainerScreen()),
-                  ),
-                ),
-                // TAMBAHKAN MENU BARU INI
-                _buildMenuCard(
-                  context,
-                  Icons.check_circle,
-                  'Shipping',
-                  Colors.blue,
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ReadyToShipScreen(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final double spacing = 12.0;
 
   Widget _buildMenuCard(
     BuildContext context,
@@ -142,30 +90,121 @@ class HomeScreen extends StatelessWidget {
     Color color,
     VoidCallback onTap,
   ) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 70, // Sedikit diperbesar
-            height: 70, // Sedikit diperbesar
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withOpacity(0.5), width: 1.5),
-            ),
-            child: Icon(icon, size: 35, color: color),
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.all(spacing / 2),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+                ),
+                child: Icon(icon, size: 35, color: color),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.all(spacing),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildMenuCard(
+                context,
+                Icons.warehouse,
+                'Warehouse',
+                Colors.green,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WarehouseScreen()),
+                ),
+              ),
+              _buildMenuCard(
+                context,
+                Icons.local_shipping,
+                'Container',
+                Colors.orange,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ContainerScreen()),
+                ),
+              ),
+              _buildMenuCard(
+                context,
+                Icons.bar_chart,
+                'Monitoring',
+                Colors.red,
+                () {
+                  debugPrint(
+                    'Monitoring menu tapped! Need to navigate to MonitoringScreen.',
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+
+        Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: spacing),
+            child: Row(
+              children: [
+                _buildMenuCard(
+                  context,
+                  Icons.redo,
+                  'Warehouse to Container',
+                  Colors.blue,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ReadyToShipScreen(),
+                    ),
+                  ),
+                ),
+                _buildMenuCard(
+                  context,
+                  Icons.undo,
+                  'Container to Warehouse',
+                  Colors.purple,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ToWarehouseScreen(),
+                    ),
+                  ),
+                ),
+                // Tambahkan Expanded kosong untuk mengisi ruang kolom ke-3
+                const Expanded(child: SizedBox.shrink()),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

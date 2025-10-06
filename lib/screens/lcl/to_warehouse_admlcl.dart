@@ -1,32 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/lcl_service.dart';
 
-// Model untuk Sugesti Kontainer
-class ContainerSuggestion {
-  final String id;
-  final String number;
-
-  ContainerSuggestion({required this.id, required this.number});
-
-  factory ContainerSuggestion.fromJson(Map<String, dynamic> json) {
-    return ContainerSuggestion(
-      id: (json['container_id'] ?? '').toString(),
-      number: (json['container_number'] ?? '').toString(),
-    );
-  }
-}
-
-class ReadyToShipScreen extends StatefulWidget {
-  const ReadyToShipScreen({super.key});
+class ToWarehouseScreen extends StatefulWidget {
+  const ToWarehouseScreen({super.key});
 
   @override
-  State<ReadyToShipScreen> createState() => _ReadyToShipScreenState();
+  State<ToWarehouseScreen> createState() => _ToWarehouseScreenState();
 }
 
-class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
+class _ToWarehouseScreenState extends State<ToWarehouseScreen> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isFlashOn = false;
   bool _isLoading = false;
@@ -34,16 +18,6 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
 
   final LCLService _lclService = LCLService();
   String? _codeBarang;
-
-  // State dan controller untuk kontainer
-  final TextEditingController _containerSearchController =
-      TextEditingController();
-  String? _selectedContainerId;
-  String? _selectedContainerNumber;
-  List<ContainerSuggestion> _containerSuggestions = [];
-  bool _isFetchingContainers = false;
-  bool _isContainerSelected = false;
-  List<ContainerSuggestion> _allContainers = [];
 
   String _getLpbHeader(String fullBarcode) {
     int lastSlashIndex = fullBarcode.lastIndexOf('/');
@@ -75,137 +49,16 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
 
     bool allComplete = items.every((item) {
       final String statusBarang = item['status_barang']?.toString() ?? '';
-      return statusBarang == '5';
+      return statusBarang == '4';
     });
 
     return !hasPendingItem && allComplete;
   }
 
   @override
-  void initState() {
-    super.initState();
-    _initContainers();
-  }
-
-  @override
   void dispose() {
-    _clearContainerSelection();
     _controller.dispose();
-    _containerSearchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _clearContainerSelection() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('container_id');
-    await prefs.remove('container_number');
-  }
-
-  Future<void> _loadAllContainers() async {
-    setState(() => _isFetchingContainers = true);
-    final containersData = await _lclService.getAllContainerNumbers();
-    if (containersData != null) {
-      setState(() {
-        _allContainers =
-            containersData
-                .map((item) => ContainerSuggestion.fromJson(item))
-                .toList();
-      });
-    }
-    setState(() => _isFetchingContainers = false);
-  }
-
-  Future<void> _initContainers() async {
-    await _loadAllContainers();
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showContainerSelectionModal();
-      });
-    }
-  }
-
-  void _filterContainerSuggestions(String query, StateSetter dialogSetState) {
-    List<ContainerSuggestion> filtered;
-    if (query.isEmpty) {
-      filtered = _allContainers;
-    } else {
-      filtered =
-          _allContainers.where((container) {
-            return container.number.toLowerCase().contains(query.toLowerCase());
-          }).toList();
-    }
-    dialogSetState(() => _containerSuggestions = filtered);
-  }
-
-  void _showContainerSelectionModal() {
-    setState(() {
-      _containerSuggestions = _allContainers;
-      _containerSearchController.clear();
-    });
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Pilih Nomor Kontainer'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _containerSearchController,
-                    onChanged:
-                        (value) =>
-                            _filterContainerSuggestions(value, setDialogState),
-                    decoration: const InputDecoration(
-                      labelText: 'Cari nomor kontainer...',
-                      suffixIcon: Icon(Icons.search),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _isFetchingContainers
-                      ? const Center(child: CircularProgressIndicator())
-                      : SizedBox(
-                        height: 200,
-                        width: double.maxFinite,
-                        child: ListView.builder(
-                          itemCount: _containerSuggestions.length,
-                          itemBuilder: (context, index) {
-                            final suggestion = _containerSuggestions[index];
-                            return ListTile(
-                              title: Text(suggestion.number),
-                              onTap: () async {
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                await prefs.setString(
-                                  'container_id',
-                                  suggestion.id,
-                                );
-                                await prefs.setString(
-                                  'container_number',
-                                  suggestion.number,
-                                );
-
-                                setState(() {
-                                  _selectedContainerId = suggestion.id;
-                                  _selectedContainerNumber = suggestion.number;
-                                  _isContainerSelected = true;
-                                });
-                                Navigator.of(dialogContext).pop();
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   void _toggleFlash() {
@@ -270,11 +123,11 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
       final data = lpbData['data'] as Map<String, dynamic>;
       final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
 
-      if (status != 4) {
+      if (status != 5) {
         _showErrorDialog(
           context,
           'Status Tidak Valid',
-          'Status barang tidak valid untuk proses ini.',
+          'Status barang tidak valid untuk dikembalikan ke gudang.',
         );
         return;
       }
@@ -304,11 +157,9 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Container: ${_selectedContainerNumber ?? '...'}'),
-          const SizedBox(height: 10),
           Text('Kode Barang: $_codeBarang'),
           const SizedBox(height: 20),
-          const Text('Ubah status dari Warehouse ke Container?'),
+          const Text('Ubah status dari Container ke Warehouse?'),
         ],
       ),
       actions: [
@@ -329,19 +180,16 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
             bool? isLpbComplete;
             String lpbHeader = '';
 
-            final prefs = await SharedPreferences.getInstance();
-            final containerId = prefs.getString('container_id');
             final currentBarcode = _scannedBarcode;
 
             // 2. Lakukan semua validasi dan proses async di dalam satu blok try-catch
             try {
-              if (containerId == null || currentBarcode == null) {
-                throw Exception('Data kontainer atau barcode tidak valid.');
+              if (currentBarcode == null) {
+                throw Exception('Data barcode tidak valid.');
               }
 
-              isSuccess = await _lclService.updateStatusReadyToShip(
+              isSuccess = await _lclService.updateStatusToWarehouse(
                 numberLpbItem: currentBarcode,
-                containerNumber: containerId,
               );
 
               if (isSuccess) {
@@ -375,7 +223,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                       (context) => AlertDialog(
                         title: const Text('LPB Selesai'),
                         content: Text(
-                          'Semua barang untuk LPB $lpbHeader telah berhasil diproses.',
+                          'Semua barang untuk LPB $lpbHeader telah selesai diproses.',
                         ),
                         actions: [
                           TextButton(
@@ -395,7 +243,7 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                       (context) => AlertDialog(
                         title: const Text('Berhasil'),
                         content: const Text(
-                          'Status berhasil diubah dari Warehouse ke Container. Lanjutkan scan berikutnya.',
+                          'Status berhasil diubah dari Container ke Warehouse. Lanjutkan scan berikutnya.',
                         ),
                         actions: [
                           TextButton(
@@ -444,12 +292,9 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
                   'Aplikasi LCL',
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                Text(
-                  'Warehouse To ${_selectedContainerNumber ?? ''}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const Text(
+                  'Container To Warehouse',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -469,48 +314,30 @@ class _ReadyToShipScreenState extends State<ReadyToShipScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child:
-                    _isContainerSelected
-                        ? MobileScanner(
-                          controller: _controller,
-                          onDetect: (capture) async {
-                            if (_scannedBarcode != null ||
-                                _selectedContainerId == null)
-                              return;
-                            final barcode = capture.barcodes.first.rawValue;
-                            if (barcode != null) {
-                              _controller.stop();
-                              await _showConfirmationModal(context, barcode);
-                            }
-                          },
-                        )
-                        : const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: Text(
-                              'Pilih nomor kontainer untuk mengaktifkan pemindai.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ),
-              ),
-            ),
-          ),
-          if (_isContainerSelected)
-            Center(
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.6,
-                height: MediaQuery.of(context).size.width * 0.6,
-                margin: const EdgeInsets.only(bottom: 80),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.red, width: 4),
+                child: MobileScanner(
+                  controller: _controller,
+                  onDetect: (capture) async {
+                    if (_scannedBarcode != null) return;
+                    final barcode = capture.barcodes.first.rawValue;
+                    if (barcode != null) {
+                      _controller.stop();
+                      await _showConfirmationModal(context, barcode);
+                    }
+                  },
                 ),
               ),
             ),
+          ),
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.6,
+              height: MediaQuery.of(context).size.width * 0.6,
+              margin: const EdgeInsets.only(bottom: 80),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.red, width: 4),
+              ),
+            ),
+          ),
           if (_isLoading) const Center(child: CircularProgressIndicator()),
           Positioned(
             left: 16,

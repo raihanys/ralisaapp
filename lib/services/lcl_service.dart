@@ -36,10 +36,16 @@ class LCLService {
       '$baseUrl/getLPBInfo?token=$token&number_lpb=$numberLpb',
     );
 
+    print('Fetching LPB info for: $numberLpb'); // Debugging message
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body);
+        if (data['status'] == true && data['items'] != null) {
+          return data;
+        }
+        return null;
       } else {
         print('Error getting LPB Info: ${response.statusCode}');
         return null;
@@ -247,7 +253,6 @@ class LCLService {
       return false;
     }
 
-    // Menggunakan baseUrl untuk membangun URL
     final url = Uri.parse('$baseUrl/update_status_ready_to_ship');
 
     print('updateStatusReadyToShip parameters:');
@@ -259,8 +264,8 @@ class LCLService {
         url,
         body: {
           'token': token,
-          'number_lpb_item': numberLpbItem.trim(), // Trim here
-          'container_id': containerNumber.trim(), // Trim here
+          'number_lpb_item': numberLpbItem.trim(),
+          'container_id': containerNumber.trim(),
         },
       );
 
@@ -271,6 +276,42 @@ class LCLService {
       }
       print(
         'updateStatusReadyToShip: Server responded with status code ${response.statusCode}',
+      );
+      print('Response body: ${response.body}');
+      return false;
+    } catch (e) {
+      print('Error updating status: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateStatusToWarehouse({required String numberLpbItem}) async {
+    final token = await _authService.getValidToken();
+    if (token == null) {
+      print('updateStatusToWarehouse: Token is null!');
+      return false;
+    }
+
+    final url = Uri.parse(
+      '$baseUrl/update_status_item_from_container_to_warehouse',
+    );
+
+    print('updateStatusToWarehouse parameters:');
+    print('numberLpbItem: $numberLpbItem');
+
+    try {
+      final response = await http.post(
+        url,
+        body: {'token': token, 'number_lpb_item': numberLpbItem.trim()},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('updateStatusToWarehouse API response: $data');
+        return data['status'] == true;
+      }
+      print(
+        'updateStatusToWarehouse: Server responded with status code ${response.statusCode}',
       );
       print('Response body: ${response.body}');
       return false;

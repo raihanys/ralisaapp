@@ -8,12 +8,11 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
-// Model disertakan langsung di sini untuk kemudahan
 class ItemSuggestion {
   final String id;
-  final String originalName; // Store the full original name
-  final String packaging; // First word
-  final String cleanedName; // Second word onwards
+  final String originalName;
+  final String packaging;
+  final String cleanedName;
   final String type;
 
   ItemSuggestion({
@@ -34,9 +33,8 @@ class ItemSuggestion {
       firstWord = fullNamaBarang.substring(0, firstSpaceIndex).trim();
       restOfName = fullNamaBarang.substring(firstSpaceIndex + 1).trim();
     } else {
-      // If no space, the whole string is the "first word" (packaging)
       firstWord = fullNamaBarang;
-      restOfName = ''; // No rest of the name
+      restOfName = '';
     }
 
     return ItemSuggestion(
@@ -93,9 +91,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
   List<ItemSuggestion> _allItems = [];
 
-  // NEW: State variables for packaging
   String? _selectedPackaging;
-  // DIUBAH: Daftar kemasan yang diizinkan secara manual
   final List<String> _allowedPackagingTypes = [
     'Dus',
     'Pack',
@@ -125,11 +121,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   String? _fotoUrl;
 
-  // LPB TRACKING
-  String? _currentLpbHeader;
-  int _totalItemsInLpb = 0;
-  final Set<String> _scannedLpbItems = {};
-
   String _getLpbHeader(String fullBarcode) {
     int lastSlashIndex = fullBarcode.lastIndexOf('/');
     if (lastSlashIndex != -1) {
@@ -143,7 +134,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     super.initState();
     _loadAllItems();
     _loadTipeBarang();
-    // Inisialisasi _uniquePackagingTypes dengan daftar yang diizinkan
     _uniquePackagingTypes = _allowedPackagingTypes;
     _selectedCondition = 'Normal';
     _keteranganController = TextEditingController();
@@ -175,8 +165,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     super.dispose();
   }
 
-  // --- SEMUA FUNGSI HELPER DARI INPUT_DATA_ADMLCL.DART DICOPY KE SINI ---
-
   void _hitungVolume() {
     final double? panjang = double.tryParse(_panjangController.text.trim());
     final double? lebar = double.tryParse(_lebarController.text.trim());
@@ -206,8 +194,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       setState(() {
         _allItems =
             itemsData.map((item) => ItemSuggestion.fromJson(item)).toList();
-        // DIUBAH: _uniquePackagingTypes sudah diinisialisasi di initState dengan _allowedPackagingTypes
-        // Tidak perlu diekstrak dari _allItems lagi jika ingin fixed list.
       });
     }
     setState(() => _isFetchingSuggestions = false);
@@ -328,6 +314,29 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     );
   }
 
+  Future<bool> _checkLpbCompletion(String lpbHeader) async {
+    final lpbInfo = await _lclService.getLPBInfo(lpbHeader);
+
+    if (lpbInfo == null || lpbInfo['items'] is! List) {
+      return false;
+    }
+
+    final List<dynamic> items = lpbInfo['items'];
+    if (items.isEmpty) return false;
+
+    bool hasPendingItem = items.any((item) {
+      final String statusBarang = item['status_barang']?.toString() ?? '';
+      final dynamic statusPenerimaan = item['status_penerimaan_barang'];
+
+      if (statusBarang == '1' && statusPenerimaan == null) {
+        return true;
+      }
+      return false;
+    });
+
+    return !hasPendingItem;
+  }
+
   Future<void> _showInputModal(
     BuildContext context,
     String scannedBarcode,
@@ -341,10 +350,10 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       _isLoading = true;
       _itemSuggestions = [];
       _isSuggestionBoxVisible = false;
-      _selectedTipeId = null; // Reset to null
+      _selectedTipeId = null;
       _selectedBarangId = null;
       _isNamaFromSuggestion = false;
-      _selectedPackaging = null; // Reset packaging
+      _selectedPackaging = null;
       _formKey.currentState?.reset();
       _selectedCondition = 'Normal';
       _keteranganController.clear();
@@ -369,25 +378,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
       final data = lpbData['data'] as Map<String, dynamic>;
 
-      final String lpbHeader = _getLpbHeader(scannedBarcode);
-      final int totalItems =
-          int.tryParse(data['total_barang']?.toString() ?? '0') ?? 0;
-
-      if (lpbHeader != _currentLpbHeader) {
-        print("New LPB detected. Resetting tracking.");
-        setState(() {
-          _currentLpbHeader = lpbHeader;
-          _totalItemsInLpb = totalItems;
-          _scannedLpbItems.clear();
-        });
-      }
-
       final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
       if (status >= 5) {
         _showErrorDialog(
           context,
           'Status Tidak Valid',
-          'Barang sudah diinput di Kontainer atau sudah dalam proses Shipment.',
+          'Barang sudah diinput di Kontainer atau sudah dalam proses pengiriman.',
         );
         return;
       }
@@ -510,7 +506,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         enableDrag: false,
         builder: (context) => _buildInputModal(context),
       ).whenComplete(() {
+        print("Input modal closed. Restarting scanner.");
         _scannedBarcode = null;
+        if (mounted) {
+          _controller.start();
+        }
       });
     } catch (e) {
       setState(() => _isLoading = false);
@@ -555,9 +555,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                           ElevatedButton(
                             onPressed: () {
                               Navigator.pop(context);
-                              if (mounted) {
-                                _controller.start();
-                              }
                             },
                             style: ElevatedButton.styleFrom(
                               shape: const CircleBorder(),
@@ -1267,56 +1264,72 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               );
 
                               if (mounted) {
-                                if (success) {
-                                  _scannedLpbItems.add(currentBarcode);
-                                }
-
+                                // Tutup modal input SEBELUM menampilkan dialog baru.
                                 Navigator.of(context).pop();
 
-                                if (success &&
-                                    _scannedLpbItems.length >=
-                                        _totalItemsInLpb &&
-                                    _totalItemsInLpb > 0) {
-                                  showDialog(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder:
-                                        (context) => AlertDialog(
-                                          title: const Text('LPB Selesai'),
-                                          content: Text(
-                                            'Semua $_totalItemsInLpb barang untuk LPB $_currentLpbHeader telah berhasil diproses.',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () {
-                                                // Reset state and go home
-                                                setState(() {
-                                                  _currentLpbHeader = null;
-                                                  _totalItemsInLpb = 0;
-                                                  _scannedLpbItems.clear();
-                                                });
-                                                // This pops all routes until the first one (homescreen)
-                                                Navigator.of(context).popUntil(
-                                                  (route) => route.isFirst,
-                                                );
-                                              },
-                                              child: const Text('OK'),
-                                            ),
-                                          ],
-                                        ),
+                                if (success) {
+                                  final String lpbHeader = _getLpbHeader(
+                                    currentBarcode,
                                   );
+                                  final bool isComplete =
+                                      await _checkLpbCompletion(lpbHeader);
+
+                                  if (isComplete) {
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder:
+                                          (context) => AlertDialog(
+                                            title: const Text('LPB Selesai'),
+                                            content: Text(
+                                              'Semua barang untuk LPB $lpbHeader telah berhasil diproses.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.of(
+                                                    context,
+                                                  ).popUntil(
+                                                    (route) => route.isFirst,
+                                                  );
+                                                },
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                    );
+                                  } else {
+                                    showDialog(
+                                      context: context,
+                                      builder:
+                                          (context) => AlertDialog(
+                                            title: const Text('Berhasil'),
+                                            content: const Text(
+                                              'Data berhasil disimpan. Lanjutkan scan barang berikutnya.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed:
+                                                    () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                    );
+                                    // Scanner akan di-restart oleh .whenComplete()
+                                  }
                                 } else {
+                                  // Dialog untuk kasus gagal
                                   showDialog(
                                     context: context,
                                     builder:
                                         (context) => AlertDialog(
-                                          title: Text(
-                                            success ? 'Berhasil' : 'Gagal',
-                                          ),
-                                          content: Text(
-                                            success
-                                                ? 'Data berhasil disimpan ke Warehouse'
-                                                : 'Gagal menyimpan data',
+                                          title: const Text('Gagal'),
+                                          content: const Text(
+                                            'Gagal menyimpan data.',
                                           ),
                                           actions: [
                                             TextButton(
@@ -1324,45 +1337,23 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                                   () =>
                                                       Navigator.of(
                                                         context,
-                                                      ).pop(), // tutup popup
+                                                      ).pop(),
                                               child: const Text('OK'),
                                             ),
                                           ],
                                         ),
-                                  ).then((_) {
-                                    if (mounted) {
-                                      _controller.start();
-                                    }
-                                  });
+                                  );
                                 }
                               }
                             } catch (e) {
                               if (mounted) {
-                                showDialog(
-                                  context: context,
-                                  builder:
-                                      (context) => AlertDialog(
-                                        title: const Text('Error'),
-                                        content: Text(
-                                          'Terjadi kesalahan: ${e.toString()}',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed:
-                                                () =>
-                                                    Navigator.of(
-                                                      context,
-                                                    ).pop(), // tutup popup
-                                            child: const Text('OK'),
-                                          ),
-                                        ],
-                                      ),
-                                ).then((_) {
-                                  if (mounted) {
-                                    _controller
-                                        .start(); // Aktifkan scanner setelah dialog tertutup
-                                  }
-                                });
+                                // Tutup modal jika terjadi error
+                                Navigator.of(context).pop();
+                                _showErrorDialog(
+                                  context,
+                                  'Error',
+                                  'Terjadi kesalahan: ${e.toString()}',
+                                );
                               }
                             } finally {
                               if (mounted) setState(() => _isLoading = false);
