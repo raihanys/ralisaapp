@@ -154,175 +154,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
     return fullBarcode;
   }
 
-  List<Map<String, dynamic>> _bulkUpdateCandidates = [];
-  bool _showBulkUpdateSection = false;
-  Set<String> _selectedBulkItems = Set<String>();
-
-  Future<void> _loadBulkUpdateCandidates(String currentBarcode) async {
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final String lpbHeader = _getLpbHeader(currentBarcode);
-      final lpbInfo = await _lclService.getLPBInfo(lpbHeader);
-
-      if (lpbInfo != null && lpbInfo['items'] is List) {
-        final List<dynamic> items = lpbInfo['items'];
-
-        // Filter barang dengan status_barang = 1 dan bukan yang sedang di-scan
-        final candidates =
-            items
-                .where((item) {
-                  final String statusBarang =
-                      item['status_barang']?.toString() ?? '';
-                  final String barangKode =
-                      item['barang_kode']?.toString() ?? '';
-                  return statusBarang == '1' && barangKode != currentBarcode;
-                })
-                .cast<Map<String, dynamic>>()
-                .toList();
-
-        setState(() {
-          _bulkUpdateCandidates = candidates;
-          _showBulkUpdateSection = candidates.isNotEmpty;
-          _selectedBulkItems.clear();
-        });
-      }
-    } catch (e) {
-      print('Error loading bulk update candidates: $e');
-      setState(() {
-        _bulkUpdateCandidates = [];
-        _showBulkUpdateSection = false;
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _performBulkUpdate() async {
-    if (_selectedBulkItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih minimal satu barang untuk diupdate'),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Siapkan data yang sama dengan barang yang sedang di-scan
-      String namaBarangToSend;
-      if (_isNamaFromSuggestion && _selectedBarangId != null) {
-        ItemSuggestion? selectedItem;
-        try {
-          selectedItem = _allItems.firstWhere(
-            (element) => element.id == _selectedBarangId,
-          );
-        } catch (e) {
-          print(
-            "Item with ID $_selectedBarangId not found in the master list.",
-          );
-        }
-
-        if (selectedItem != null) {
-          namaBarangToSend = selectedItem.originalName;
-        } else {
-          if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Mohon pilih kemasan barang.')),
-            );
-            setState(() => _isLoading = false);
-            return;
-          }
-          namaBarangToSend =
-              '${_selectedPackaging!} ${_namaController.text}'.trim();
-        }
-      } else {
-        if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Mohon pilih kemasan barang.')),
-          );
-          setState(() => _isLoading = false);
-          return;
-        }
-        namaBarangToSend =
-            '${_selectedPackaging!} ${_namaController.text}'.trim();
-      }
-
-      String? statusValue;
-      if (_selectedCondition == 'Kurang') {
-        statusValue = '1';
-      } else if (_selectedCondition == 'Rusak (Tidak Dikirim)') {
-        statusValue = '2';
-      } else if (_selectedCondition == 'Rusak (Dikirim)') {
-        statusValue = '3';
-      }
-
-      bool shouldDeletePhoto =
-          _fotoFile == null && _fotoUrl == null && _showFotoUpload;
-
-      final prefs = await SharedPreferences.getInstance();
-      final containerId = prefs.getString('container_id');
-
-      final success = await _lclService.saveMultipleLPBDetail(
-        numberLpbItems: _selectedBulkItems.toList(),
-        weight: _beratController.text.trim(),
-        height: _tinggiController.text.trim(),
-        length: _panjangController.text.trim(),
-        width: _lebarController.text.trim(),
-        nama_barang: namaBarangToSend,
-        tipe_barang: _selectedTipeId!,
-        barang_id: _selectedBarangId,
-        container_number: containerId,
-        status: statusValue,
-        keterangan:
-            _keteranganController.text.isNotEmpty
-                ? _keteranganController.text
-                : null,
-        foto_terima_barang: _fotoFile,
-        deleteExistingFoto: shouldDeletePhoto,
-      );
-
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Berhasil update ${_selectedBulkItems.length} barang',
-              ),
-            ),
-          );
-
-          // Reset selection
-          setState(() {
-            _selectedBulkItems.clear();
-            _showBulkUpdateSection = false;
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Gagal update beberapa barang')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  String? _groupId;
 
   @override
   void initState() {
@@ -689,10 +521,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
       _showKeteranganField = false;
       _fotoFile = null;
       _fotoUrl = null;
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadBulkUpdateCandidates(scannedBarcode);
+      _groupId = null;
     });
 
     try {
@@ -709,6 +538,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
       }
 
       final data = lpbData['data'] as Map<String, dynamic>;
+
+      _groupId = data['group_id']?.toString();
 
       final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;
       if (status == 4) {
@@ -856,6 +687,282 @@ class _ContainerScreenState extends State<ContainerScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       _showErrorDialog(context, 'Error', 'Terjadi kesalahan: ${e.toString()}');
+    }
+  }
+
+  Future<void> _showBulkSubmitDialog() async {
+    final String lpbHeader = _getLpbHeader(_kodebarangController.text.trim());
+    setState(() => _isLoading = true);
+    final lpbInfo = await _lclService.getLPBInfo(lpbHeader);
+    setState(() => _isLoading = false);
+
+    if (lpbInfo == null || lpbInfo['items'] is! List) {
+      _showErrorDialog(
+        context,
+        'Gagal',
+        'Tidak dapat memuat daftar barang untuk LPB ini.',
+      );
+      return;
+    }
+
+    final List<dynamic> allItems = lpbInfo['items'];
+    final String currentItemCode = _kodebarangController.text.trim();
+
+    // Filter barang: status_barang = '1' dan bukan barang yang sedang di-scan
+    final List<Map<String, dynamic>> eligibleItems =
+        allItems
+            .where((item) {
+              final String statusBarang =
+                  item['status_barang']?.toString() ?? '';
+              final String barangKode = item['barang_kode']?.toString() ?? '';
+              return statusBarang == '1' && barangKode != currentItemCode;
+            })
+            .toList()
+            .cast<Map<String, dynamic>>();
+
+    if (eligibleItems.isEmpty) {
+      _showErrorDialog(
+        context,
+        'Info',
+        'Tidak ada barang lain yang dapat di-submit secara bulk.',
+      );
+      return;
+    }
+
+    List<String> selectedItemsForBulk = [];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Pilih Barang untuk Bulk Submit'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: eligibleItems.length,
+                  itemBuilder: (context, index) {
+                    final item = eligibleItems[index];
+                    final itemCode = item['barang_kode']?.toString() ?? 'N/A';
+                    final isSelected = selectedItemsForBulk.contains(itemCode);
+
+                    return CheckboxListTile(
+                      title: Text(itemCode),
+                      value: isSelected,
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          if (value == true) {
+                            selectedItemsForBulk.add(itemCode);
+                          } else {
+                            selectedItemsForBulk.remove(itemCode);
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(); // Tutup dialog pilihan
+                    // Panggil handler dengan daftar item yang dipilih
+                    _handleFormSubmission(bulkItems: selectedItemsForBulk);
+                  },
+                  child: const Text('Submit Terpilih'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleFormSubmission({List<String>? bulkItems}) async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+
+      final prefs = await SharedPreferences.getInstance();
+      final containerId = prefs.getString('container_id');
+
+      if (containerId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ID Kontainer tidak ditemukan.')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      try {
+        String namaBarangToSend;
+        if (_isNamaFromSuggestion && _selectedBarangId != null) {
+          ItemSuggestion? selectedItem;
+          try {
+            selectedItem = _allItems.firstWhere(
+              (element) => element.id == _selectedBarangId,
+            );
+          } catch (e) {
+            print(
+              "Item with ID $_selectedBarangId not found in the master list. Proceeding with manual name construction.",
+            );
+          }
+
+          if (selectedItem != null) {
+            namaBarangToSend = selectedItem.originalName;
+          } else {
+            if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Item data seems inconsistent. Please select a packaging type.',
+                  ),
+                ),
+              );
+              setState(() => _isLoading = false);
+              return;
+            }
+            namaBarangToSend =
+                '${_selectedPackaging!} ${_namaController.text}'.trim();
+          }
+        } else {
+          if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Mohon pilih kemasan barang.')),
+            );
+            setState(() => _isLoading = false);
+            return;
+          }
+          namaBarangToSend =
+              '${_selectedPackaging!} ${_namaController.text}'.trim();
+        }
+
+        String? statusValue;
+        if (_selectedCondition == 'Kurang') {
+          statusValue = '1';
+        } else if (_selectedCondition == 'Rusak (Tidak Dikirim)') {
+          statusValue = '2';
+        } else if (_selectedCondition == 'Rusak (Dikirim)') {
+          statusValue = '3';
+        }
+
+        bool shouldDeletePhoto =
+            _fotoFile == null && _fotoUrl == null && _showFotoUpload;
+
+        final String currentBarcode = _kodebarangController.text.trim();
+
+        // Tentukan daftar item yang akan di-submit
+        List<String> itemsToSubmit = [currentBarcode];
+        if (bulkItems != null && bulkItems.isNotEmpty) {
+          itemsToSubmit.addAll(bulkItems);
+        }
+
+        // Panggil fungsi bulk service (berfungsi untuk 1 atau lebih item)
+        final success = await _lclService.saveLPBDetailBulk(
+          number_lpb_items: itemsToSubmit,
+          weight: _beratController.text.trim(),
+          height: _tinggiController.text.trim(),
+          length: _panjangController.text.trim(),
+          width: _lebarController.text.trim(),
+          nama_barang: namaBarangToSend,
+          tipe_barang: _selectedTipeId!,
+          barang_id: _selectedBarangId,
+          container_number: containerId,
+          status: statusValue,
+          keterangan:
+              _keteranganController.text.isNotEmpty
+                  ? _keteranganController.text
+                  : null,
+          foto_terima_barang: _fotoFile,
+          deleteExistingFoto: shouldDeletePhoto,
+        );
+
+        if (mounted) {
+          // Tutup modal input SEBELUM menampilkan dialog baru.
+          Navigator.of(context).pop();
+
+          if (success) {
+            final String lpbHeader = _getLpbHeader(currentBarcode);
+            final bool isComplete = await _checkLpbCompletion(lpbHeader);
+
+            if (isComplete) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('LPB Selesai'),
+                      content: Text(
+                        'Semua barang untuk LPB $lpbHeader telah berhasil diproses.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(
+                              context,
+                            ).popUntil((route) => route.isFirst);
+                          },
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+              );
+            } else {
+              showDialog(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('Berhasil'),
+                      content: const Text(
+                        'Data berhasil disimpan. Lanjutkan scan barang berikutnya.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+              );
+              // Scanner akan di-restart oleh .whenComplete()
+            }
+          } else {
+            // Dialog untuk kasus gagal
+            showDialog(
+              context: context,
+              builder:
+                  (context) => AlertDialog(
+                    title: const Text('Gagal'),
+                    content: const Text('Gagal menyimpan data.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          // Tutup modal jika terjadi error
+          Navigator.of(context).pop();
+          _showErrorDialog(
+            context,
+            'Error',
+            'Terjadi kesalahan: ${e.toString()}',
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -1517,345 +1624,57 @@ class _ContainerScreenState extends State<ContainerScreen> {
                         ),
                       ],
                       const SizedBox(height: 20),
-
-                      if (_showBulkUpdateSection) ...[
-                        const SizedBox(height: 20),
-                        Card(
-                          color: Colors.blue[50],
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.group_work,
-                                      color: Colors.blue,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'Bulk Update Barang Lainnya',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    IconButton(
-                                      icon: const Icon(Icons.close),
-                                      onPressed: () {
-                                        setModalState(() {
-                                          _showBulkUpdateSection = false;
-                                          _selectedBulkItems.clear();
-                                        });
+                      Row(
+                        children: [
+                          // Tombol Submit Biasa (selalu ada)
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed:
+                                  _isLoading
+                                      ? null
+                                      : () {
+                                        // Panggil handler tanpa item tambahan
+                                        _handleFormSubmission();
                                       },
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Pilih barang dengan nomor LPB sama untuk diupdate dengan data yang sama:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-
-                                // List barang kandidat
-                                Container(
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 150,
-                                  ),
-                                  child: ListView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: _bulkUpdateCandidates.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _bulkUpdateCandidates[index];
-                                      final barangKode =
-                                          item['barang_kode']?.toString() ?? '';
-                                      final isSelected = _selectedBulkItems
-                                          .contains(barangKode);
-
-                                      return CheckboxListTile(
-                                        value: isSelected,
-                                        onChanged: (bool? value) {
-                                          setModalState(() {
-                                            if (value == true) {
-                                              _selectedBulkItems.add(
-                                                barangKode,
-                                              );
-                                            } else {
-                                              _selectedBulkItems.remove(
-                                                barangKode,
-                                              );
-                                            }
-                                          });
-                                        },
-                                        title: Text(
-                                          barangKode,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                        dense: true,
-                                      );
-                                    },
-                                  ),
-                                ),
-
-                                const SizedBox(height: 12),
-                                ElevatedButton(
-                                  onPressed:
-                                      _selectedBulkItems.isEmpty
-                                          ? null
-                                          : _performBulkUpdate,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(
-                                      double.infinity,
-                                      40,
-                                    ),
-                                  ),
-                                  child:
-                                      _isLoading
-                                          ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                          )
-                                          : Text(
-                                            'Update ${_selectedBulkItems.length} Barang',
-                                          ),
-                                ),
-                              ],
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              child:
+                                  _isLoading
+                                      ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                      : const Text('Submit'),
                             ),
                           ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            setState(() => _isLoading = true);
-
-                            final prefs = await SharedPreferences.getInstance();
-                            final containerId = prefs.getString('container_id');
-
-                            if (containerId == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'ID Kontainer tidak ditemukan. Mohon pilih ulang.',
-                                  ),
+                          // Tombol Bulk Submit (kondisional)
+                          if (_groupId == null) ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () {
+                                          if (_formKey.currentState!
+                                              .validate()) {
+                                            // Tampilkan modal pilihan
+                                            _showBulkSubmitDialog();
+                                          }
+                                        },
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(double.infinity, 50),
+                                  backgroundColor: Colors.blue, // Warna berbeda
+                                  foregroundColor: Colors.white,
                                 ),
-                              );
-                              setState(() => _isLoading = false);
-                              return;
-                            }
-
-                            try {
-                              String namaBarangToSend;
-                              if (_isNamaFromSuggestion &&
-                                  _selectedBarangId != null) {
-                                ItemSuggestion? selectedItem;
-                                try {
-                                  selectedItem = _allItems.firstWhere(
-                                    (element) =>
-                                        element.id == _selectedBarangId,
-                                  );
-                                } catch (e) {
-                                  print(
-                                    "Item with ID $_selectedBarangId not found in the master list. Proceeding with manual name construction.",
-                                  );
-                                }
-
-                                if (selectedItem != null) {
-                                  namaBarangToSend = selectedItem.originalName;
-                                } else {
-                                  if (_selectedPackaging == null ||
-                                      _selectedPackaging!.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Item data seems inconsistent. Please select a packaging type.',
-                                        ),
-                                      ),
-                                    );
-                                    setState(() => _isLoading = false);
-                                    return;
-                                  }
-                                  namaBarangToSend =
-                                      '${_selectedPackaging!} ${_namaController.text}'
-                                          .trim();
-                                }
-                              } else {
-                                if (_selectedPackaging == null ||
-                                    _selectedPackaging!.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Mohon pilih kemasan barang.',
-                                      ),
-                                    ),
-                                  );
-                                  setState(() => _isLoading = false);
-                                  return;
-                                }
-                                namaBarangToSend =
-                                    '${_selectedPackaging!} ${_namaController.text}'
-                                        .trim();
-                              }
-
-                              String? statusValue;
-                              if (_selectedCondition == 'Kurang') {
-                                statusValue = '1';
-                              } else if (_selectedCondition ==
-                                  'Rusak (Tidak Dikirim)') {
-                                statusValue = '2';
-                              } else if (_selectedCondition ==
-                                  'Rusak (Dikirim)') {
-                                statusValue = '3';
-                              }
-
-                              bool shouldDeletePhoto =
-                                  _fotoFile == null &&
-                                  _fotoUrl == null &&
-                                  _showFotoUpload;
-
-                              final String currentBarcode =
-                                  _kodebarangController.text.trim();
-
-                              final success = await _lclService.saveLPBDetail(
-                                number_lpb_item: currentBarcode,
-                                weight: _beratController.text.trim(),
-                                height: _tinggiController.text.trim(),
-                                length: _panjangController.text.trim(),
-                                width: _lebarController.text.trim(),
-                                nama_barang: namaBarangToSend,
-                                tipe_barang: _selectedTipeId!,
-                                barang_id: _selectedBarangId,
-                                container_number: containerId,
-                                status: statusValue,
-                                keterangan:
-                                    _keteranganController.text.isNotEmpty
-                                        ? _keteranganController.text
-                                        : null,
-                                foto_terima_barang: _fotoFile,
-                                deleteExistingFoto: shouldDeletePhoto,
-                              );
-
-                              if (mounted) {
-                                // Tutup modal input SEBELUM menampilkan dialog baru.
-                                Navigator.of(context).pop();
-
-                                if (success) {
-                                  final String lpbHeader = _getLpbHeader(
-                                    currentBarcode,
-                                  );
-                                  final bool isComplete =
-                                      await _checkLpbCompletion(lpbHeader);
-
-                                  if (isComplete) {
-                                    showDialog(
-                                      context: context,
-                                      barrierDismissible: false,
-                                      builder:
-                                          (context) => AlertDialog(
-                                            title: const Text('LPB Selesai'),
-                                            content: Text(
-                                              'Semua barang untuk LPB $lpbHeader telah berhasil diproses.',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () {
-                                                  Navigator.of(
-                                                    context,
-                                                  ).popUntil(
-                                                    (route) => route.isFirst,
-                                                  );
-                                                },
-                                                child: const Text('OK'),
-                                              ),
-                                            ],
-                                          ),
-                                    );
-                                  } else {
-                                    showDialog(
-                                      context: context,
-                                      builder:
-                                          (context) => AlertDialog(
-                                            title: const Text('Berhasil'),
-                                            content: const Text(
-                                              'Data berhasil disimpan. Lanjutkan scan barang berikutnya.',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed:
-                                                    () =>
-                                                        Navigator.of(
-                                                          context,
-                                                        ).pop(),
-                                                child: const Text('OK'),
-                                              ),
-                                            ],
-                                          ),
-                                    );
-                                    // Scanner akan di-restart oleh .whenComplete()
-                                  }
-                                } else {
-                                  // Dialog untuk kasus gagal
-                                  showDialog(
-                                    context: context,
-                                    builder:
-                                        (context) => AlertDialog(
-                                          title: const Text('Gagal'),
-                                          content: const Text(
-                                            'Gagal menyimpan data.',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed:
-                                                  () =>
-                                                      Navigator.of(
-                                                        context,
-                                                      ).pop(),
-                                              child: const Text('OK'),
-                                            ),
-                                          ],
-                                        ),
-                                  );
-                                }
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                // Tutup modal jika terjadi error
-                                Navigator.of(context).pop();
-                                _showErrorDialog(
-                                  context,
-                                  'Error',
-                                  'Terjadi kesalahan: ${e.toString()}',
-                                );
-                              }
-                            } finally {
-                              if (mounted) setState(() => _isLoading = false);
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 50),
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                        ),
-                        child:
-                            _isLoading
-                                ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                                : const Text('Submit'),
+                                child: const Text('Bulk Submit'),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-
                       const SizedBox(height: 10),
                     ],
                   ),

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import 'api_config.dart';
-import 'dart:typed_data';
 
 class LCLService {
   final AuthService _authService = AuthService();
@@ -37,7 +36,7 @@ class LCLService {
       '$baseUrl/getLPBInfo?token=$token&number_lpb=$numberLpb',
     );
 
-    print('Fetching LPB info for: $numberLpb'); // Debugging message
+    print('Fetching LPB info for: $numberLpb');
 
     try {
       final response = await http.get(url);
@@ -244,8 +243,8 @@ class LCLService {
     }
   }
 
-  Future<bool> saveMultipleLPBDetail({
-    required List<String> numberLpbItems,
+  Future<bool> saveLPBDetailBulk({
+    required List<String> number_lpb_items,
     required String weight,
     required String height,
     required String length,
@@ -259,117 +258,35 @@ class LCLService {
     File? foto_terima_barang,
     bool deleteExistingFoto = false,
   }) async {
-    final token = await _authService.getValidToken();
-    if (token == null) {
-      print('Token is null!');
-      return false;
-    }
+    // Loop melalui setiap item code
+    for (String itemCode in number_lpb_items) {
+      print('Submitting for item: $itemCode');
+      final success = await saveLPBDetail(
+        number_lpb_item: itemCode, // Kirim satu per satu
+        weight: weight,
+        height: height,
+        length: length,
+        width: width,
+        nama_barang: nama_barang,
+        tipe_barang: tipe_barang,
+        barang_id: barang_id,
+        container_number: container_number,
+        status: status,
+        keterangan: keterangan,
+        foto_terima_barang: foto_terima_barang,
+        deleteExistingFoto: deleteExistingFoto,
+      );
 
-    // Baca file foto menjadi bytes jika ada
-    Uint8List? fileBytes;
-    String? fileName;
-    if (foto_terima_barang != null) {
-      fileBytes = await foto_terima_barang.readAsBytes();
-      fileName = foto_terima_barang.path.split('/').last;
-    }
-
-    bool allSuccess = true;
-
-    for (String number_lpb_item in numberLpbItems) {
-      final fields = {
-        'token': token,
-        'number_lpb_item': number_lpb_item.trim(),
-        'weight': weight.trim(),
-        'height': height.trim(),
-        'length': length.trim(),
-        'width': width.trim(),
-        'nama_barang': nama_barang.trim(),
-        'tipe_barang': tipe_barang.trim(),
-      };
-
-      if (barang_id != null) {
-        fields['barang_id'] = barang_id.trim();
-      }
-      if (container_number != null) {
-        fields['container_number'] = container_number.trim();
-      }
-      if (status != null) {
-        fields['status'] = status;
-      }
-      if (keterangan != null) {
-        fields['keterangan'] = keterangan.trim();
-      }
-
-      if (deleteExistingFoto) {
-        fields['foto_terima_barang'] = '';
-      }
-
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/store_lpb_detail'),
-      )..fields.addAll(fields);
-
-      // Tambahkan file foto jika ada (gunakan bytes yang sama untuk semua item)
-      if (fileBytes != null && fileName != null) {
-        final multipartFile = http.MultipartFile.fromBytes(
-          'foto_terima_barang',
-          fileBytes,
-          filename: fileName,
-        );
-        request.files.add(multipartFile);
-      }
-
-      print('Sending bulk request for $number_lpb_item with fields: $fields');
-
-      try {
-        final response = await request.send();
-        final resBody = await response.stream.bytesToString();
-
-        if (resBody.trim().startsWith('<!DOCTYPE') ||
-            resBody.trim().startsWith('<div')) {
-          print('Server returned HTML error for $number_lpb_item: $resBody');
-          allSuccess = false;
-          continue;
-        }
-
-        final data = jsonDecode(resBody);
-
-        if (response.statusCode == 401 ||
-            (data['error'] == true && data['message'] == 'Token Not Found')) {
-          final newToken = await _authService.softLoginRefresh();
-          if (newToken != null) {
-            // Coba lagi dengan token baru
-            return saveMultipleLPBDetail(
-              numberLpbItems: numberLpbItems,
-              weight: weight,
-              height: height,
-              length: length,
-              width: width,
-              nama_barang: nama_barang,
-              tipe_barang: tipe_barang,
-              barang_id: barang_id,
-              container_number: container_number,
-              status: status,
-              keterangan: keterangan,
-              foto_terima_barang: foto_terima_barang,
-              deleteExistingFoto: deleteExistingFoto,
-            );
-          }
-        }
-
-        if (response.statusCode != 200 || data['status'] != true) {
-          print('Failed to update $number_lpb_item: ${data['message']}');
-          allSuccess = false;
-        } else {
-          print('Successfully updated $number_lpb_item');
-        }
-      } catch (e) {
-        print('Error saving LPB detail for $number_lpb_item: $e');
-        allSuccess = false;
+      // Jika salah satu gagal, hentikan proses dan kembalikan false
+      if (!success) {
+        print('Failed to submit item: $itemCode. Aborting bulk save.');
+        return false;
       }
     }
 
-    return allSuccess;
+    // Jika semua berhasil, kembalikan true
+    print('Bulk save completed successfully.');
+    return true;
   }
 
   Future<bool> updateStatusReadyToShip({
