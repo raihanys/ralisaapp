@@ -724,7 +724,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
       _showErrorDialog(
         context,
         'Info',
-        'Tidak ada barang lain yang dapat di-submit secara bulk.',
+        'Tidak ada barang lain yang dapat di-submit secara bersamaan.',
       );
       return;
     }
@@ -737,7 +737,9 @@ class _ContainerScreenState extends State<ContainerScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Pilih Barang untuk Bulk Submit'),
+              title: const Text(
+                'Pilih Barang untuk di Submit secara bersamaan',
+              ),
               content: SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
@@ -769,13 +771,13 @@ class _ContainerScreenState extends State<ContainerScreen> {
                   onPressed: () => Navigator.of(dialogContext).pop(),
                   child: const Text('Batal'),
                 ),
-                ElevatedButton(
+                TextButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop(); // Tutup dialog pilihan
                     // Panggil handler dengan daftar item yang dipilih
                     _handleFormSubmission(bulkItems: selectedItemsForBulk);
                   },
-                  child: const Text('Submit Terpilih'),
+                  child: const Text('Submit'),
                 ),
               ],
             );
@@ -1666,10 +1668,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
                                         },
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size(double.infinity, 50),
-                                  backgroundColor: Colors.blue, // Warna berbeda
+                                  backgroundColor:
+                                      Colors.blueAccent, // Warna berbeda
                                   foregroundColor: Colors.white,
                                 ),
-                                child: const Text('Bulk Submit'),
+                                child: const Text('Multi Submit'),
                               ),
                             ),
                           ],
