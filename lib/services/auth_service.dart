@@ -186,4 +186,9 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('invoicing_code', invoicingCode);
   }
+
+  Future<String?> getUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('username');
+  }
 }

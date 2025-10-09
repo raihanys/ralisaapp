@@ -5,6 +5,7 @@ import 'warehouse_admlcl.dart';
 import 'container_admlcl.dart';
 import 'shipping_admlcl.dart';
 import 'to_warehouse_admlcl.dart';
+import 'monitoring_admlcl.dart';
 
 class MainLCL extends StatefulWidget {
   const MainLCL({super.key});
@@ -159,11 +160,10 @@ class HomeScreen extends StatelessWidget {
                 Icons.bar_chart,
                 'Monitoring',
                 Colors.red,
-                () {
-                  debugPrint(
-                    'Monitoring menu tapped! Need to navigate to MonitoringScreen.',
-                  );
-                },
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MonitoringAdmLCL()),
+                ),
               ),
             ],
           ),
