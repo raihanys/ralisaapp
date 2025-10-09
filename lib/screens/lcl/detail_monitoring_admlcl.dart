@@ -130,7 +130,6 @@ class _DetailMonitoringAdmLCLState extends State<DetailMonitoringAdmLCL> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  // GANTI JUDUL APLIKASI
                   const Text(
                     'Aplikasi LCL',
                     style: TextStyle(fontSize: 14, color: Colors.grey),
