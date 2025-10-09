@@ -180,7 +180,8 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                               5: FixedColumnWidth(70),
                               6: FixedColumnWidth(100),
                               7: FixedColumnWidth(120),
-                              8: FixedColumnWidth(60), // Kolom checklist
+                              8: FixedColumnWidth(79),
+                              9: FixedColumnWidth(60), // Kolom checklist
                               // Kolom '+' Dihapus
                             },
                             border: TableBorder.all(
@@ -202,9 +203,8 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                   _HeaderCell('Berat'),
                                   _HeaderCell('Volume'),
                                   _HeaderCell('Status'),
-                                  _HeaderCell(
-                                    '',
-                                  ), // Ubah header '+' jadi Status
+                                  _HeaderCell('Petugas'),
+                                  _HeaderCell(''),
                                 ],
                               ),
 
@@ -242,6 +242,7 @@ class _ItemLpbWarehouseState extends State<ItemLpbWarehouse> {
                                               ?.toString() ??
                                           '-',
                                     ),
+                                    _BodyCell(item['petugas'] ?? '-'),
                                     Container(
                                       height: 72,
                                       alignment: Alignment.center,

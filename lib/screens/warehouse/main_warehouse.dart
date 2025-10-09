@@ -286,6 +286,11 @@ class _MainWarehouseState extends State<MainWarehouse> {
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 12),
+                Text(
+                  'Petugas: ${item['petugas'] ?? '-'}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
