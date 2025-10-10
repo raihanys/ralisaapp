@@ -16,11 +16,9 @@ class DetailMonitoringAdmLCL extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  // GANTI NAMA STATE CLASS
   _DetailMonitoringAdmLCLState createState() => _DetailMonitoringAdmLCLState();
 }
 
-// GANTI NAMA STATE CLASS
 class _DetailMonitoringAdmLCLState extends State<DetailMonitoringAdmLCL> {
   late LCLService _lclService;
   List<Map<String, dynamic>> _items = [];

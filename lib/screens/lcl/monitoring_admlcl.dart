@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'detail_monitoring_admlcl.dart';
-import '../login_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/lcl_service.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'main_admlcl.dart';
 
 class MonitoringAdmLCL extends StatefulWidget {
   const MonitoringAdmLCL({Key? key}) : super(key: key);
@@ -24,6 +24,13 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
   );
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _filteredLpbList = [];
+
+  void _backToMainLCL() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainLCL()),
+    );
+  }
 
   @override
   void initState() {
@@ -118,7 +125,7 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(150.0),
+        preferredSize: const Size.fromHeight(175.0),
         child: SafeArea(child: _buildCustomAppBar(context)),
       ),
       body:
@@ -135,6 +142,13 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
                   ),
                 ],
               ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _backToMainLCL,
+        tooltip: 'Kembali ke Menu Utama',
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(Icons.arrow_back, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.miniStartFloat,
     );
   }
 
@@ -148,26 +162,11 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Image.asset('assets/images/logo.png', height: 40, width: 200),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _authService.logout();
-                    if (!mounted) return;
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('Logout'),
-                ),
               ],
             ),
             const SizedBox(height: 24),
