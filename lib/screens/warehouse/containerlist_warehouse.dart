@@ -83,7 +83,7 @@ class _ContainerListWarehouseState extends State<ContainerListWarehouse> {
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                     Text(
-                      'Daftar Kontainer',
+                      'List Kontainer',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

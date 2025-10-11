@@ -97,8 +97,8 @@ class _MainWarehouseState extends State<MainWarehouse> {
           elevation: 0,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.directions_boat_filled_outlined),
-              activeIcon: Icon(Icons.directions_boat_filled),
+              icon: Icon(Icons.local_shipping_outlined),
+              activeIcon: Icon(Icons.local_shipping),
               label: 'Container',
             ),
             BottomNavigationBarItem(

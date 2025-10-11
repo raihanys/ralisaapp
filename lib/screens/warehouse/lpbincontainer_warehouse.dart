@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../../services/warehouse_service.dart';
-import '../login_screen.dart';
-import '../../services/auth_service.dart';
 import 'itemlpb_warehouse.dart';
 
 class LpbInContainerWarehouse extends StatefulWidget {
@@ -22,7 +20,6 @@ class LpbInContainerWarehouse extends StatefulWidget {
 
 class _LpbInContainerWarehouseState extends State<LpbInContainerWarehouse> {
   final WarehouseService _warehouseService = WarehouseService();
-  final AuthService _authService = AuthService();
   List<Map<String, dynamic>> _lpbList = [];
   List<Map<String, dynamic>> _filteredLpbList = [];
   bool _isLoading = true;
@@ -112,18 +109,6 @@ class _LpbInContainerWarehouseState extends State<LpbInContainerWarehouse> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Image.asset('assets/images/logo.png', height: 40, width: 200),
-              ElevatedButton(
-                onPressed: () async {
-                  await _authService.logout();
-                  if (!mounted) return;
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                },
-                child: const Text('Logout'),
-              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -134,13 +119,13 @@ class _LpbInContainerWarehouseState extends State<LpbInContainerWarehouse> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text(
+                      'Aplikasi Kepala Gudang',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
                     Text(
                       widget.containerNumber,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                    const Text(
-                      'Daftar LPB',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
