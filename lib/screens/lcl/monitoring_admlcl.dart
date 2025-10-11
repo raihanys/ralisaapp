@@ -125,7 +125,7 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(175.0),
+        preferredSize: const Size.fromHeight(150.0),
         child: SafeArea(child: _buildCustomAppBar(context)),
       ),
       body:
@@ -182,7 +182,7 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
                         style: TextStyle(fontSize: 14, color: Colors.grey),
                       ),
                       Text(
-                        'Monitoring Scan LPB',
+                        'Monitoring Scan',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
