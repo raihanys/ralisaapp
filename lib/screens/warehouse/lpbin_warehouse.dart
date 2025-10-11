@@ -80,28 +80,54 @@ class _LpbInWarehouseState extends State<LpbInWarehouse> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Cari LPB di Warehouse...',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8.0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Aplikasi Kepala Gudang',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    Text(
+                      'LPB di Warehouse',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              suffixIcon:
-                  _searchController.text.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear, size: 20),
-                        onPressed: () {
-                          _searchController.clear();
-                          _filterList('');
-                        },
-                      )
-                      : null,
-            ),
-            onChanged: _filterList,
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari LPB di Warehouse...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    suffixIcon:
+                        _searchController.text.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                _filterList('');
+                              },
+                            )
+                            : null,
+                  ),
+                  onChanged: _filterList,
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -122,10 +148,13 @@ class _LpbInWarehouseState extends State<LpbInWarehouse> {
     if (_filteredLpbList.isEmpty) {
       return const Center(child: Text("Tidak ada data LPB di Warehouse"));
     }
-    // Menggunakan kode dari main_warehouse.dart untuk membangun list view
-    // (Card, _buildInfoChip, dll)
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        16,
+      ), // Padding atas dikurangi
       itemCount: _filteredLpbList.length,
       itemBuilder: (context, index) {
         final item = _filteredLpbList[index];

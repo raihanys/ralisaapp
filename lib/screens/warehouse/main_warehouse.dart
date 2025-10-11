@@ -21,8 +21,9 @@ class _MainWarehouseState extends State<MainWarehouse> {
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(150.0),
-        child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
+        // Ukuran AppBar disesuaikan karena tidak ada judul lagi
+        preferredSize: const Size.fromHeight(90.0),
+        child: SafeArea(child: _buildCustomAppBar(context)),
       ),
       body: IndexedStack(
         index: _currentIndex,
@@ -32,22 +33,11 @@ class _MainWarehouseState extends State<MainWarehouse> {
     );
   }
 
-  Widget _buildCustomAppBar(BuildContext context, int currentIndex) {
-    String title = '';
-    switch (currentIndex) {
-      case 0:
-        title = 'Daftar Kontainer';
-        break;
-      case 1:
-        title = 'LPB di Warehouse';
-        break;
-    }
-
+  Widget _buildCustomAppBar(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -73,15 +63,7 @@ class _MainWarehouseState extends State<MainWarehouse> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Aplikasi Kepala Gudang',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          // Bagian judul dinamis dihapus dari sini
         ],
       ),
     );

@@ -70,28 +70,54 @@ class _ContainerListWarehouseState extends State<ContainerListWarehouse> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Cari No. Kontainer / No. Seal...',
-              prefixIcon: const Icon(Icons.search, size: 20),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8.0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Aplikasi Kepala Gudang',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    Text(
+                      'Daftar Kontainer',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              suffixIcon:
-                  _searchController.text.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear, size: 20),
-                        onPressed: () {
-                          _searchController.clear();
-                          _filterList('');
-                        },
-                      )
-                      : null,
-            ),
-            onChanged: _filterList,
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari No. Kontainer / Seal...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    suffixIcon:
+                        _searchController.text.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                _filterList('');
+                              },
+                            )
+                            : null,
+                  ),
+                  onChanged: _filterList,
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -113,7 +139,12 @@ class _ContainerListWarehouseState extends State<ContainerListWarehouse> {
       return const Center(child: Text("Tidak ada data kontainer"));
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        16,
+      ), // Padding atas dikurangi
       itemCount: _filteredContainerList.length,
       itemBuilder: (context, index) {
         final container = _filteredContainerList[index];
@@ -149,7 +180,7 @@ class _ContainerListWarehouseState extends State<ContainerListWarehouse> {
                         children: [
                           _buildInfoChip(
                             'QTY',
-                            '${container['qty'] ?? '0'} LPB',
+                            '${container['qty'] ?? '0'} item',
                           ),
                           _buildInfoChip(
                             'Berat',
