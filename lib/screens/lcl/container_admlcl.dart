@@ -501,6 +501,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
     BuildContext context,
     String scannedBarcode,
   ) async {
+    await _loadAllItems();
+
     if (_isFlashOn) {
       _controller.toggleTorch();
       setState(() => _isFlashOn = false);
@@ -773,9 +775,30 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 ),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(dialogContext).pop(); // Tutup dialog pilihan
-                    // Panggil handler dengan daftar item yang dipilih
-                    _handleFormSubmission(bulkItems: selectedItemsForBulk);
+                    if (selectedItemsForBulk.isEmpty) {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext alertContext) {
+                          return AlertDialog(
+                            title: const Text('Tidak Valid'),
+                            content: const Text(
+                              'Pilih minimal 1 LPB untuk multi-submit. Jika hanya ingin submit 1 LPB, gunakan tombol Submit biasa.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(alertContext).pop();
+                                },
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    } else {
+                      Navigator.of(dialogContext).pop();
+                      _handleFormSubmission(bulkItems: selectedItemsForBulk);
+                    }
                   },
                   child: const Text('Submit'),
                 ),
@@ -789,6 +812,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
   Future<void> _handleFormSubmission({List<String>? bulkItems}) async {
     if (_formKey.currentState!.validate()) {
+      Navigator.of(context).pop();
+
       setState(() => _isLoading = true);
 
       final prefs = await SharedPreferences.getInstance();
@@ -886,9 +911,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
         );
 
         if (mounted) {
-          // Tutup modal input SEBELUM menampilkan dialog baru.
-          Navigator.of(context).pop();
-
           if (success) {
             final String lpbHeader = _getLpbHeader(currentBarcode);
             final bool isComplete = await _checkLpbCompletion(lpbHeader);
@@ -954,8 +976,6 @@ class _ContainerScreenState extends State<ContainerScreen> {
         }
       } catch (e) {
         if (mounted) {
-          // Tutup modal jika terjadi error
-          Navigator.of(context).pop();
           _showErrorDialog(
             context,
             'Error',
@@ -1838,34 +1858,37 @@ class _ContainerScreenState extends State<ContainerScreen> {
                 borderRadius: BorderRadius.circular(10),
                 // --- UPDATED ---: Conditionally show the scanner or a placeholder text.
                 child:
-                    _isContainerSelected
-                        ? MobileScanner(
-                          controller: _controller,
-                          onDetect: (capture) async {
-                            if (_scannedBarcode != null ||
-                                _selectedContainerId == null)
-                              return;
-                            final barcode = capture.barcodes.first.rawValue;
-                            if (barcode != null) {
-                              setState(() => _scannedBarcode = barcode);
-                              _controller.stop();
-                              await _showInputModal(context, barcode);
-                            }
-                          },
-                        )
-                        : const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: Text(
-                              'Pilih nomor kontainer untuk mengaktifkan pemindai.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
+                    _isLoading
+                        ? Container(color: Colors.white)
+                        : (_isContainerSelected
+                            ? MobileScanner(
+                              controller: _controller,
+                              onDetect: (capture) async {
+                                if (_scannedBarcode != null ||
+                                    _selectedContainerId == null ||
+                                    _isLoading)
+                                  return;
+                                final barcode = capture.barcodes.first.rawValue;
+                                if (barcode != null) {
+                                  setState(() => _scannedBarcode = barcode);
+                                  _controller.stop();
+                                  await _showInputModal(context, barcode);
+                                }
+                              },
+                            )
+                            : const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: Text(
+                                  'Pilih nomor kontainer untuk mengaktifkan pemindai.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
+                            )),
               ),
             ),
           ),

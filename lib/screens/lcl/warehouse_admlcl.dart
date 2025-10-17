@@ -343,6 +343,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     BuildContext context,
     String scannedBarcode,
   ) async {
+    await _loadAllItems();
+
     if (_isFlashOn) {
       _controller.toggleTorch();
       setState(() => _isFlashOn = false);
@@ -606,9 +608,30 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                 ),
                 TextButton(
                   onPressed: () {
-                    Navigator.of(dialogContext).pop(); // Tutup dialog pilihan
-                    // Panggil handler dengan daftar item yang dipilih
-                    _handleFormSubmission(bulkItems: selectedItemsForBulk);
+                    if (selectedItemsForBulk.isEmpty) {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext alertContext) {
+                          return AlertDialog(
+                            title: const Text('Tidak Valid'),
+                            content: const Text(
+                              'Pilih minimal 1 LPB untuk multi-submit. Jika hanya ingin submit 1 LPB, gunakan tombol Submit biasa.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(alertContext).pop();
+                                },
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    } else {
+                      Navigator.of(dialogContext).pop();
+                      _handleFormSubmission(bulkItems: selectedItemsForBulk);
+                    }
                   },
                   child: const Text('Submit'),
                 ),
@@ -622,6 +645,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
   Future<void> _handleFormSubmission({List<String>? bulkItems}) async {
     if (_formKey.currentState!.validate()) {
+      Navigator.of(context).pop();
+
       setState(() => _isLoading = true);
       try {
         String namaBarangToSend;
@@ -706,9 +731,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         );
 
         if (mounted) {
-          // Tutup modal input SEBELUM menampilkan dialog baru.
-          Navigator.of(context).pop();
-
           if (success) {
             final String lpbHeader = _getLpbHeader(currentBarcode);
             final bool isComplete = await _checkLpbCompletion(lpbHeader);
@@ -774,8 +796,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         }
       } catch (e) {
         if (mounted) {
-          // Tutup modal jika terjadi error
-          Navigator.of(context).pop();
           _showErrorDialog(
             context,
             'Error',
@@ -1642,18 +1662,24 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: MobileScanner(
-                  controller: _controller,
-                  onDetect: (capture) async {
-                    if (_scannedBarcode != null) return;
-                    final barcode = capture.barcodes.first.rawValue;
-                    if (barcode != null) {
-                      setState(() => _scannedBarcode = barcode);
-                      _controller.stop();
-                      await _showInputModal(context, barcode);
-                    }
-                  },
-                ),
+                child:
+                    _isLoading
+                        ? Container(
+                          color: Colors.white,
+                        ) // TAMPILKAN INI SAAT LOADING
+                        : MobileScanner(
+                          // JIKA TIDAK LOADING, TAMPILKAN SCANNER
+                          controller: _controller,
+                          onDetect: (capture) async {
+                            if (_scannedBarcode != null || _isLoading) return;
+                            final barcode = capture.barcodes.first.rawValue;
+                            if (barcode != null) {
+                              setState(() => _scannedBarcode = barcode);
+                              _controller.stop();
+                              await _showInputModal(context, barcode);
+                            }
+                          },
+                        ),
               ),
             ),
           ),
