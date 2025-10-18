@@ -541,6 +541,30 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
       final data = lpbData['data'] as Map<String, dynamic>;
 
+      final String? itemContainerId = data['container_id']?.toString().trim();
+      final String? selectedContainerId = _selectedContainerId;
+
+      if (itemContainerId != null &&
+          itemContainerId.isNotEmpty &&
+          itemContainerId != selectedContainerId) {
+        String containerNumber = "lain"; // Default text
+        try {
+          final existingContainer = _allContainers.firstWhere(
+            (container) => container.id == itemContainerId,
+          );
+          containerNumber = existingContainer.number;
+        } catch (e) {
+          print("Could not find container number for ID: $itemContainerId");
+        }
+
+        _showErrorDialog(
+          context,
+          'Kontainer Salah',
+          'Barang ini sudah terdaftar di Kontainer $containerNumber. Pindai di kontainer yang sesuai.',
+        );
+        return; // Hentikan proses
+      }
+
       _groupId = data['group_id']?.toString();
 
       final int status = int.tryParse(data['status']?.toString() ?? '0') ?? 0;

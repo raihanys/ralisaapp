@@ -3,9 +3,9 @@
 // DEVELOPMENT LOCAL
 // const String baseUrl = 'http://192.168.20.25/ralisa_api/index.php/api';
 // const String baseUrl = 'http://192.168.20.65/ralisa_api/index.php/api';
-const String baseUrl = 'http://192.168.0.42/ralisa_api/index.php/api';
-// const String baseUrl = 'http://192.168.20.100/ralisa_api/index.php/api';
+// const String baseUrl = 'http://192.168.0.42/ralisa_api/index.php/api';
+// const String baseUrl = 'http://10.10.10.27/ralisa_api/index.php/api';
 // DEVELOPMENT SERVER
-// const String baseUrl = 'http://192.168.20.114/ralisa_api/index.php/api';
-// const String baseUrl = 'http://192.168.0.139/ralisa_api/index.php/api';
-// const String baseUrl = 'http://192.168.0.100/ralisa_api/index.php/api';
+// const String baseUrl = 'http://172.168.1.2/ralisa_api/index.php/api';
+// LIVE DEVELOPMENT SERVER
+const String baseUrl = 'http://lcl.ralisatech.site/ralisa_api/index.php/api';
