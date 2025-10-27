@@ -546,6 +546,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
       if (itemContainerId != null &&
           itemContainerId.isNotEmpty &&
+          itemContainerId != "0" &&
           itemContainerId != selectedContainerId) {
         String containerNumber = "lain"; // Default text
         try {
@@ -836,6 +837,27 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
   Future<void> _handleFormSubmission({List<String>? bulkItems}) async {
     if (_formKey.currentState!.validate()) {
+      // --- FIX: KUNCI SEMUA DATA DARI CONTROLLER SEKARANG ---
+      // Ambil semua nilai dari controller dan state SEBELUM menutup modal
+      // atau melakukan proses async.
+      final String currentBarcode = _kodebarangController.text.trim();
+      final String weight = _beratController.text.trim();
+      final String height = _tinggiController.text.trim();
+      final String length = _panjangController.text.trim();
+      final String width = _lebarController.text.trim();
+      final String? tipeBarangId = _selectedTipeId;
+      final String? barangId = _selectedBarangId;
+      final String? selectedPackaging = _selectedPackaging;
+      final String namaBarang = _namaController.text.trim();
+      final bool isFromSuggestion = _isNamaFromSuggestion;
+      final String? condition = _selectedCondition;
+      final String keterangan = _keteranganController.text.trim();
+      final File? fotoFile = _fotoFile;
+      final bool deletePhoto =
+          _fotoFile == null && _fotoUrl == null && _showFotoUpload;
+      // --- END FIX ---
+
+      // Sekarang aman untuk menutup modal, karena semua data sudah disimpan
       Navigator.of(context).pop();
 
       setState(() => _isLoading = true);
@@ -853,22 +875,23 @@ class _ContainerScreenState extends State<ContainerScreen> {
 
       try {
         String namaBarangToSend;
-        if (_isNamaFromSuggestion && _selectedBarangId != null) {
+        // Gunakan variabel lokal yang sudah dikunci (bukan state/controller lagi)
+        if (isFromSuggestion && barangId != null) {
           ItemSuggestion? selectedItem;
           try {
             selectedItem = _allItems.firstWhere(
-              (element) => element.id == _selectedBarangId,
+              (element) => element.id == barangId, // <-- Gunakan barangId
             );
           } catch (e) {
             print(
-              "Item with ID $_selectedBarangId not found in the master list. Proceeding with manual name construction.",
+              "Item with ID $barangId not found in the master list. Proceeding with manual name construction.",
             );
           }
 
           if (selectedItem != null) {
             namaBarangToSend = selectedItem.originalName;
           } else {
-            if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
+            if (selectedPackaging == null || selectedPackaging.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text(
@@ -880,10 +903,11 @@ class _ContainerScreenState extends State<ContainerScreen> {
               return;
             }
             namaBarangToSend =
-                '${_selectedPackaging!} ${_namaController.text}'.trim();
+                '$selectedPackaging $namaBarang'
+                    .trim(); // <-- Gunakan variabel lokal
           }
         } else {
-          if (_selectedPackaging == null || _selectedPackaging!.isEmpty) {
+          if (selectedPackaging == null || selectedPackaging.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Mohon pilih kemasan barang.')),
             );
@@ -891,25 +915,24 @@ class _ContainerScreenState extends State<ContainerScreen> {
             return;
           }
           namaBarangToSend =
-              '${_selectedPackaging!} ${_namaController.text}'.trim();
+              '$selectedPackaging $namaBarang'
+                  .trim(); // <-- Gunakan variabel lokal
         }
 
         String? statusValue;
-        if (_selectedCondition == 'Kurang') {
+        if (condition == 'Kurang') {
+          // <-- Gunakan condition
           statusValue = '1';
-        } else if (_selectedCondition == 'Rusak (Tidak Dikirim)') {
+        } else if (condition == 'Rusak (Tidak Dikirim)') {
           statusValue = '2';
-        } else if (_selectedCondition == 'Rusak (Dikirim)') {
+        } else if (condition == 'Rusak (Dikirim)') {
           statusValue = '3';
         }
 
-        bool shouldDeletePhoto =
-            _fotoFile == null && _fotoUrl == null && _showFotoUpload;
-
-        final String currentBarcode = _kodebarangController.text.trim();
-
         // Tentukan daftar item yang akan di-submit
-        List<String> itemsToSubmit = [currentBarcode];
+        List<String> itemsToSubmit = [
+          currentBarcode,
+        ]; // <-- Gunakan currentBarcode
         if (bulkItems != null && bulkItems.isNotEmpty) {
           itemsToSubmit.addAll(bulkItems);
         }
@@ -917,26 +940,28 @@ class _ContainerScreenState extends State<ContainerScreen> {
         // Panggil fungsi bulk service (berfungsi untuk 1 atau lebih item)
         final success = await _lclService.saveLPBDetailBulk(
           number_lpb_items: itemsToSubmit,
-          weight: _beratController.text.trim(),
-          height: _tinggiController.text.trim(),
-          length: _panjangController.text.trim(),
-          width: _lebarController.text.trim(),
+          weight: weight, // <-- Gunakan weight
+          height: height, // <-- Gunakan height
+          length: length, // <-- Gunakan length
+          width: width, // <-- Gunakan width
           nama_barang: namaBarangToSend,
-          tipe_barang: _selectedTipeId!,
-          barang_id: _selectedBarangId,
+          tipe_barang: tipeBarangId!, // <-- Gunakan tipeBarangId
+          barang_id: barangId, // <-- Gunakan barangId
           container_number: containerId,
           status: statusValue,
           keterangan:
-              _keteranganController.text.isNotEmpty
-                  ? _keteranganController.text
-                  : null,
-          foto_terima_barang: _fotoFile,
-          deleteExistingFoto: shouldDeletePhoto,
+              keterangan.isNotEmpty
+                  ? keterangan
+                  : null, // <-- Gunakan keterangan
+          foto_terima_barang: fotoFile, // <-- Gunakan fotoFile
+          deleteExistingFoto: deletePhoto, // <-- Gunakan deletePhoto
         );
 
         if (mounted) {
           if (success) {
-            final String lpbHeader = _getLpbHeader(currentBarcode);
+            final String lpbHeader = _getLpbHeader(
+              currentBarcode,
+            ); // <-- Gunakan currentBarcode
             final bool isComplete = await _checkLpbCompletion(lpbHeader);
 
             if (isComplete) {
