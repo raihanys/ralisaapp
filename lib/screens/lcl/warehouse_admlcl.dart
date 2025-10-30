@@ -253,8 +253,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     return value.toString().trim();
   }
 
-  // Fungsi baru untuk konversi dari kg ke gram
-  String _convertKgToGramString(dynamic kgValue) {
+  // Fungsi baru untuk konversi dari kg ke dekagram
+  String _convertKgToDegString(dynamic kgValue) {
     if (kgValue == null) return '';
     final String kgString = kgValue.toString().trim();
     if (kgString.isEmpty || kgString == '0') return '';
@@ -262,11 +262,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     final double? kg = double.tryParse(kgString);
 
     if (kg != null && kg > 0) {
-      // Konversi: 1 kg = 1000 gram
-      double gram = kg * 1000;
+      // Konversi: 1 kg = 100 dekagram
+      double dekagram = kg * 100;
 
       // Menggunakan toString() dan menghilangkan '.0' jika hasilnya bilangan bulat
-      String result = gram.toString();
+      String result = dekagram.toString();
       if (result.endsWith('.0')) {
         return result.substring(0, result.length - 2);
       }
@@ -447,7 +447,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       _panjangController.text = _nullIfZero(data['length']);
       _lebarController.text = _nullIfZero(data['width']);
       _tinggiController.text = _nullIfZero(data['height']);
-      _beratController.text = _convertKgToGramString(data['weight']);
+      _beratController.text = _convertKgToDegString(data['weight']);
 
       _hitungVolume();
 
@@ -1153,7 +1153,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               focusNode: _beratFocusNode,
                               textInputAction: TextInputAction.done,
                               decoration: const InputDecoration(
-                                labelText: 'Berat (gram)',
+                                labelText: 'Berat',
                                 border: OutlineInputBorder(),
                               ),
                               keyboardType: TextInputType.number,
