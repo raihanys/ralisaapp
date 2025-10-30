@@ -253,6 +253,28 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     return value.toString().trim();
   }
 
+  // Fungsi baru untuk konversi dari kg ke gram
+  String _convertKgToGramString(dynamic kgValue) {
+    if (kgValue == null) return '';
+    final String kgString = kgValue.toString().trim();
+    if (kgString.isEmpty || kgString == '0') return '';
+
+    final double? kg = double.tryParse(kgString);
+
+    if (kg != null && kg > 0) {
+      // Konversi: 1 kg = 1000 gram
+      double gram = kg * 1000;
+
+      // Menggunakan toString() dan menghilangkan '.0' jika hasilnya bilangan bulat
+      String result = gram.toString();
+      if (result.endsWith('.0')) {
+        return result.substring(0, result.length - 2);
+      }
+      return result;
+    }
+    return '';
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       final pickedFile = await _imagePicker.pickImage(source: source);
@@ -425,7 +447,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       _panjangController.text = _nullIfZero(data['length']);
       _lebarController.text = _nullIfZero(data['width']);
       _tinggiController.text = _nullIfZero(data['height']);
-      _beratController.text = _nullIfZero(data['weight']);
+      _beratController.text = _convertKgToGramString(data['weight']);
 
       _hitungVolume();
 
@@ -1131,7 +1153,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               focusNode: _beratFocusNode,
                               textInputAction: TextInputAction.done,
                               decoration: const InputDecoration(
-                                labelText: 'Berat (kg)',
+                                labelText: 'Berat (gram)',
                                 border: OutlineInputBorder(),
                               ),
                               keyboardType: TextInputType.number,
