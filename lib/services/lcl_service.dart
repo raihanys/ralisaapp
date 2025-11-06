@@ -243,6 +243,53 @@ class LCLService {
     }
   }
 
+  Future<bool> updateNotification({
+    required String ttNumber,
+    required bool status,
+  }) async {
+    final token = await _authService.getValidToken();
+    if (token == null) {
+      print('updateNotification: Token is null!');
+      return false;
+    }
+
+    final url = Uri.parse('$baseUrl/update_notification');
+
+    print('updateNotification parameters:');
+    print('tt_number: $ttNumber');
+    print('status: $status');
+
+    try {
+      // Prepare the JSON body
+      final Map<String, dynamic> requestBody = {
+        'token': token,
+        'tt_number': ttNumber.trim(),
+        'status': status,
+      };
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('updateNotification API response: $data');
+        return data['status'] == true;
+      }
+
+      print(
+        'updateNotification: Server responded with status code ${response.statusCode}',
+      );
+      print('Response body: ${response.body}');
+      return false;
+    } catch (e) {
+      print('Error updating notification: $e');
+      return false;
+    }
+  }
+
   Future<bool> saveLPBDetailBulk({
     required List<String> number_lpb_items,
     required String weight,

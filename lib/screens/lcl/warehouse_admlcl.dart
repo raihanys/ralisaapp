@@ -131,6 +131,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
   String? _groupId;
 
+  bool get _shouldShowDimensionAndWeight {
+    return _selectedCondition != 'Kurang' &&
+        _selectedCondition != 'Rusak (Tidak Dikirim)';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -174,9 +179,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
     if (panjang != null && lebar != null && tinggi != null) {
       double volume = panjang * lebar * tinggi / 1000000;
-      _volumeController.text = volume.toStringAsFixed(
-        3,
-      ); // 3 angka di belakang koma
+      _volumeController.text = volume.toStringAsFixed(3);
     } else {
       _volumeController.text = '0.000';
     }
@@ -253,7 +256,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     return value.toString().trim();
   }
 
-  // Fungsi baru untuk konversi dari kg ke dekagram
   String _convertKgToDegString(dynamic kgValue) {
     if (kgValue == null) return '';
     final String kgString = kgValue.toString().trim();
@@ -262,10 +264,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     final double? kg = double.tryParse(kgString);
 
     if (kg != null && kg > 0) {
-      // Konversi: 1 kg = 100 dekagram
       double dekagram = kg * 100;
-
-      // Menggunakan toString() dan menghilangkan '.0' jika hasilnya bilangan bulat
       String result = dekagram.toString();
       if (result.endsWith('.0')) {
         return result.substring(0, result.length - 2);
@@ -278,35 +277,29 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   Future<void> _pickImage(ImageSource source) async {
     try {
       final pickedFile = await _imagePicker.pickImage(source: source);
-      if (pickedFile == null)
-        return; // Batal jika pengguna tidak memilih gambar
+      if (pickedFile == null) return;
 
-      // 1. Dapatkan path asli dan siapkan path target untuk file terkompresi
       final sourcePath = pickedFile.path;
       final tempDir = await getTemporaryDirectory();
       final targetPath =
           '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      // 2. Kompres gambar
       final compressedFile = await FlutterImageCompress.compressAndGetFile(
         sourcePath,
         targetPath,
-        quality: 90, // Kualitas awal 90%
+        quality: 90,
       );
 
-      // Jika kompresi gagal, hentikan fungsi
       if (compressedFile == null) {
         print('Kompresi gambar gagal.');
         return;
       }
 
-      // 3. Set file yang sudah dikompres ke state
       setState(() {
         _fotoFile = File(compressedFile.path);
       });
     } catch (e) {
       print('Error picking and compressing image: $e');
-      // Tampilkan pesan error ke pengguna jika perlu
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Gagal memproses gambar: $e')));
@@ -316,7 +309,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   void _showErrorDialog(BuildContext context, String title, String message) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Wajib tekan tombol untuk menutup
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text(title),
@@ -325,10 +318,10 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             TextButton(
               child: const Text('OK'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Tutup dialog
+                Navigator.of(dialogContext).pop();
                 if (mounted) {
                   _scannedBarcode = null;
-                  _controller.start(); // Aktifkan lagi scanner
+                  _controller.start();
                 }
               },
             ),
@@ -352,8 +345,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       final String statusBarang = item['status_barang']?.toString() ?? '';
       final dynamic statusPenerimaan = item['status_penerimaan_barang'];
 
-      if (statusBarang == '1' && statusPenerimaan == null) {
-        return true;
+      if (statusBarang == '1') {
+        return statusPenerimaan == null || statusPenerimaan.toString().isEmpty;
       }
       return false;
     });
@@ -427,7 +420,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       _totalbarangController.text =
           (data['total_barang'] ?? '').toString().trim();
 
-      // Parse the full name from scan to separate packaging and cleaned name
       String fullScannedName = (data['nama_barang'] ?? '').toString().trim();
       String scannedPackaging = '';
       String scannedCleanedName = fullScannedName;
@@ -442,7 +434,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         scannedCleanedName = '';
       }
 
-      _namaController.text = scannedCleanedName; // Show only the cleaned name
+      _namaController.text = scannedCleanedName;
 
       _panjangController.text = _nullIfZero(data['length']);
       _lebarController.text = _nullIfZero(data['width']);
@@ -453,25 +445,20 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
       setState(() {
         _selectedBarangId = data['id_barang']?.toString().trim();
-        _isNamaFromSuggestion =
-            true; // Set this true because name comes from scan
-        // Set packaging from scan, ensure it's one of the allowed types or null
+        _isNamaFromSuggestion = true;
         _selectedPackaging =
             _allowedPackagingTypes.contains(scannedPackaging)
                 ? scannedPackaging
                 : null;
       });
 
-      // DIUBAH: Perbaiki logic pemilihan Tipe Barang
       final String tipeBarangNameFromScan =
           (data['tipe_barang'] ?? '').toString().trim();
       if (tipeBarangNameFromScan.isNotEmpty && _tipeBarangList.isNotEmpty) {
-        // Cari tipe barang berdasarkan NAMA, lalu ambil ID-nya
         final matchingTipe = _tipeBarangList.firstWhere(
           (tipe) =>
               (tipe['name'] ?? '').toString().trim().toLowerCase() ==
-              tipeBarangNameFromScan
-                  .toLowerCase(), // Tambah toLowerCase() untuk case-insensitive
+              tipeBarangNameFromScan.toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
 
@@ -480,13 +467,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             _selectedTipeId = (matchingTipe['tipe_id'] ?? '').toString().trim();
           });
         } else {
-          // Jika tidak ada kecocokan nama, set _selectedTipeId ke null
           setState(() {
             _selectedTipeId = null;
           });
         }
       } else {
-        // Jika tipeBarangNameFromScan kosong atau _tipeBarangList kosong, set _selectedTipeId ke null
         setState(() {
           _selectedTipeId = null;
         });
@@ -565,7 +550,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     final List<dynamic> allItems = lpbInfo['items'];
     final String currentItemCode = _kodebarangController.text.trim();
 
-    // Filter barang: status_barang = '1' dan bukan barang yang sedang di-scan
     final List<Map<String, dynamic>> eligibleItems =
         allItems
             .where((item) {
@@ -667,14 +651,13 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
   Future<void> _handleFormSubmission({List<String>? bulkItems}) async {
     if (_formKey.currentState!.validate()) {
-      // --- FIX: KUNCI SEMUA DATA DARI CONTROLLER SEKARANG ---
-      // Ambil semua nilai dari controller dan state SEBELUM menutup modal
-      // atau melakukan proses async.
       final String currentBarcode = _kodebarangController.text.trim();
-      final String weight = _beratController.text.trim();
-      final String height = _tinggiController.text.trim();
-      final String length = _panjangController.text.trim();
-      final String width = _lebarController.text.trim();
+
+      var weight = _beratController.text.trim();
+      var height = _tinggiController.text.trim();
+      var length = _panjangController.text.trim();
+      var width = _lebarController.text.trim();
+
       final String? tipeBarangId = _selectedTipeId;
       final String? barangId = _selectedBarangId;
       final String? selectedPackaging = _selectedPackaging;
@@ -685,20 +668,24 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       final File? fotoFile = _fotoFile;
       final bool deletePhoto =
           _fotoFile == null && _fotoUrl == null && _showFotoUpload;
-      // --- END FIX ---
 
-      // Sekarang aman untuk menutup modal, karena semua data sudah disimpan
+      if (condition == 'Kurang') {
+        weight = '0';
+        height = '0';
+        length = '0';
+        width = '0';
+      }
+
       Navigator.of(context).pop();
 
       setState(() => _isLoading = true);
       try {
         String namaBarangToSend;
-        // Gunakan variabel lokal yang sudah dikunci (bukan state/controller lagi)
         if (isFromSuggestion && barangId != null) {
           ItemSuggestion? selectedItem;
           try {
             selectedItem = _allItems.firstWhere(
-              (element) => element.id == barangId, // <-- Gunakan barangId
+              (element) => element.id == barangId,
             );
           } catch (e) {
             print(
@@ -720,9 +707,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
               setState(() => _isLoading = false);
               return;
             }
-            namaBarangToSend =
-                '$selectedPackaging $namaBarang'
-                    .trim(); // <-- Gunakan variabel lokal
+            namaBarangToSend = '$selectedPackaging $namaBarang'.trim();
           }
         } else {
           if (selectedPackaging == null || selectedPackaging.isEmpty) {
@@ -732,14 +717,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             setState(() => _isLoading = false);
             return;
           }
-          namaBarangToSend =
-              '$selectedPackaging $namaBarang'
-                  .trim(); // <-- Gunakan variabel lokal
+          namaBarangToSend = '$selectedPackaging $namaBarang'.trim();
         }
 
         String? statusValue;
         if (condition == 'Kurang') {
-          // <-- Gunakan condition
           statusValue = '1';
         } else if (condition == 'Rusak (Tidak Dikirim)') {
           statusValue = '2';
@@ -747,39 +729,29 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           statusValue = '3';
         }
 
-        // Tentukan daftar item yang akan di-submit
-        List<String> itemsToSubmit = [
-          currentBarcode,
-        ]; // <-- Gunakan currentBarcode
+        List<String> itemsToSubmit = [currentBarcode];
         if (bulkItems != null && bulkItems.isNotEmpty) {
           itemsToSubmit.addAll(bulkItems);
         }
 
-        // Panggil fungsi bulk service (berfungsi untuk 1 atau lebih item)
         final success = await _lclService.saveLPBDetailBulk(
           number_lpb_items: itemsToSubmit,
-          weight: weight, // <-- Gunakan weight
-          height: height, // <-- Gunakan height
-          length: length, // <-- Gunakan length
-          width: width, // <-- Gunakan width
+          weight: weight,
+          height: height,
+          length: length,
+          width: width,
           nama_barang: namaBarangToSend,
-          tipe_barang: tipeBarangId!, // <-- Gunakan tipeBarangId
-          barang_id: barangId, // <-- Gunakan barangId
-          // Tidak ada container_number untuk warehouse
+          tipe_barang: tipeBarangId!,
+          barang_id: barangId,
           status: statusValue,
-          keterangan:
-              keterangan.isNotEmpty
-                  ? keterangan
-                  : null, // <-- Gunakan keterangan
-          foto_terima_barang: fotoFile, // <-- Gunakan fotoFile
-          deleteExistingFoto: deletePhoto, // <-- Gunakan deletePhoto
+          keterangan: keterangan.isNotEmpty ? keterangan : null,
+          foto_terima_barang: fotoFile,
+          deleteExistingFoto: deletePhoto,
         );
 
         if (mounted) {
           if (success) {
-            final String lpbHeader = _getLpbHeader(
-              currentBarcode,
-            ); // <-- Gunakan currentBarcode
+            final String lpbHeader = _getLpbHeader(currentBarcode);
             final bool isComplete = await _checkLpbCompletion(lpbHeader);
 
             if (isComplete) {
@@ -794,7 +766,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            await _lclService.updateNotification(
+                              ttNumber: lpbHeader,
+                              status: true,
+                            );
+
                             Navigator.of(
                               context,
                             ).popUntil((route) => route.isFirst);
@@ -821,10 +798,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       ],
                     ),
               );
-              // Scanner akan di-restart oleh .whenComplete()
             }
           } else {
-            // Dialog untuk kasus gagal
             showDialog(
               context: context,
               builder:
@@ -923,17 +898,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               'Urutan',
                               _urutanbarangController,
                               textAlign: TextAlign.center,
-                              fontSize: 18, // Ukuran font diperbesar
+                              fontSize: 18,
                             ),
                           ),
                           const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Text(
-                              '/',
-                              style: TextStyle(
-                                fontSize: 24,
-                              ), // Diperbesar dari 20 ke 24
-                            ),
+                            child: Text('/', style: TextStyle(fontSize: 24)),
                           ),
                           Expanded(
                             flex: 1,
@@ -941,18 +911,16 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               'Total',
                               _totalbarangController,
                               textAlign: TextAlign.center,
-                              fontSize: 18, // Ukuran font diperbesar
+                              fontSize: 18,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
-                      // NEW: Kemasan Dropdown
                       DropdownButtonFormField<String>(
                         value: _selectedPackaging,
                         isExpanded: true,
                         decoration: const InputDecoration(
-                          // DIUBAH: Hapus filled dan fillColor
                           labelText: 'Kemasan',
                           border: OutlineInputBorder(),
                         ),
@@ -965,13 +933,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               );
                             }).toList(),
                         onChanged: (String? newValue) {
-                          // DIUBAH: Always enabled
                           setState(() {
                             _selectedPackaging = newValue;
-                            _filterItemSuggestions(
-                              _namaController.text,
-                            ); // Re-filter suggestions based on new packaging
-                            // Clear existing item selection if packaging changes and it's not from scan
+                            _filterItemSuggestions(_namaController.text);
                             if (!_isNamaFromSuggestion) {
                               _selectedBarangId = null;
                               _selectedTipeId = null;
@@ -1033,7 +997,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             value: _selectedTipeId,
                             isExpanded: true,
                             decoration: const InputDecoration(
-                              // DIUBAH: Hapus filled dan fillColor
                               labelText: 'Tipe Barang',
                               border: OutlineInputBorder(),
                             ),
@@ -1053,7 +1016,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                   );
                                 }).toList(),
                             onChanged: (String? newValue) {
-                              // DIUBAH: Always enabled
                               setState(() => _selectedTipeId = newValue);
                             },
                             validator:
@@ -1063,123 +1025,141 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                         : null,
                           ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _panjangController,
-                              focusNode: _panjangFocusNode,
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) {
-                                FocusScope.of(
-                                  context,
-                                ).requestFocus(_lebarFocusNode);
-                              },
-                              decoration: const InputDecoration(
-                                labelText: 'Panjang (cm)',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              onChanged: (_) => _hitungVolume(),
-                              validator:
-                                  (v) =>
-                                      (v == null ||
-                                              v.isEmpty ||
-                                              double.tryParse(v.trim()) == null)
-                                          ? 'Angka valid'
-                                          : null,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _lebarController,
-                              focusNode: _lebarFocusNode,
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) {
-                                FocusScope.of(
-                                  context,
-                                ).requestFocus(_tinggiFocusNode);
-                              },
-                              decoration: const InputDecoration(
-                                labelText: 'Lebar (cm)',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              onChanged: (_) => _hitungVolume(),
-                              validator:
-                                  (v) =>
-                                      (v == null ||
-                                              v.isEmpty ||
-                                              double.tryParse(v.trim()) == null)
-                                          ? 'Angka valid'
-                                          : null,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _tinggiController,
-                              focusNode: _tinggiFocusNode,
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) {
-                                FocusScope.of(
-                                  context,
-                                ).requestFocus(_beratFocusNode);
-                              },
-                              decoration: const InputDecoration(
-                                labelText: 'Tinggi (cm)',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              onChanged: (_) => _hitungVolume(),
-                              validator:
-                                  (v) =>
-                                      (v == null ||
-                                              v.isEmpty ||
-                                              double.tryParse(v.trim()) == null)
-                                          ? 'Angka valid'
-                                          : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _beratController,
-                              focusNode: _beratFocusNode,
-                              textInputAction: TextInputAction.done,
-                              decoration: const InputDecoration(
-                                labelText: 'Berat',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator:
-                                  (v) =>
-                                      (v == null ||
-                                              v.isEmpty ||
-                                              double.tryParse(v.trim()) == null)
-                                          ? 'Angka valid'
-                                          : null,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _volumeController,
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Volume (m³)',
-                                border: OutlineInputBorder(),
+                      if (_shouldShowDimensionAndWeight) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _panjangController,
+                                focusNode: _panjangFocusNode,
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) {
+                                  FocusScope.of(
+                                    context,
+                                  ).requestFocus(_lebarFocusNode);
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Panjang (cm)',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) => _hitungVolume(),
+                                validator: (v) {
+                                  if (_selectedCondition == 'Kurang') {
+                                    return null;
+                                  }
+                                  if (v == null ||
+                                      v.isEmpty ||
+                                      double.tryParse(v.trim()) == null) {
+                                    return 'Angka valid';
+                                  }
+                                  return null;
+                                },
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _lebarController,
+                                focusNode: _lebarFocusNode,
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) {
+                                  FocusScope.of(
+                                    context,
+                                  ).requestFocus(_tinggiFocusNode);
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Lebar (cm)',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) => _hitungVolume(),
+                                validator: (v) {
+                                  if (_selectedCondition == 'Kurang') {
+                                    return null;
+                                  }
+                                  if (v == null ||
+                                      v.isEmpty ||
+                                      double.tryParse(v.trim()) == null) {
+                                    return 'Angka valid';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _tinggiController,
+                                focusNode: _tinggiFocusNode,
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) {
+                                  FocusScope.of(
+                                    context,
+                                  ).requestFocus(_beratFocusNode);
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: 'Tinggi (cm)',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) => _hitungVolume(),
+                                validator: (v) {
+                                  if (_selectedCondition == 'Kurang') {
+                                    return null;
+                                  }
+                                  if (v == null ||
+                                      v.isEmpty ||
+                                      double.tryParse(v.trim()) == null) {
+                                    return 'Angka valid';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _beratController,
+                                focusNode: _beratFocusNode,
+                                textInputAction: TextInputAction.done,
+                                decoration: const InputDecoration(
+                                  labelText: 'Berat',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (v) {
+                                  if (_selectedCondition == 'Kurang') {
+                                    return null;
+                                  }
+                                  if (v == null ||
+                                      v.isEmpty ||
+                                      double.tryParse(v.trim()) == null) {
+                                    return 'Angka valid';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _volumeController,
+                                readOnly: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Volume (m³)',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       Row(
                         children: [
                           Expanded(
@@ -1223,7 +1203,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                   _showKeteranganField = newShowKeteranganField;
                                 });
 
-                                // Reset foto jika status tidak memerlukan foto
                                 if (!newShowFotoUpload) {
                                   setState(() {
                                     _fotoFile = null;
@@ -1242,7 +1221,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             Expanded(
                               flex: 1,
                               child: Container(
-                                height: 56, // Sesuaikan dengan tinggi dropdown
+                                height: 56,
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.grey),
                                   borderRadius: BorderRadius.circular(4),
@@ -1263,7 +1242,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                               ),
                                               label: const Text("Kamera"),
                                               onPressed: () async {
-                                                // Jadikan async
                                                 Navigator.of(context).pop();
                                                 await _pickImage(
                                                   ImageSource.camera,
@@ -1487,7 +1465,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         ),
                       ],
 
-                      // Conditionally show keterangan field
                       if (_showKeteranganField) ...[
                         const SizedBox(height: 10),
                         TextFormField(
@@ -1508,14 +1485,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       const SizedBox(height: 20),
                       Row(
                         children: [
-                          // Tombol Submit Biasa (selalu ada)
                           Expanded(
                             child: ElevatedButton(
                               onPressed:
                                   _isLoading
                                       ? null
                                       : () {
-                                        // Panggil handler tanpa item tambahan
                                         _handleFormSubmission();
                                       },
                               style: ElevatedButton.styleFrom(
@@ -1532,7 +1507,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             ),
                           ),
 
-                          // Tombol Bulk Submit (kondisional)
                           if (_groupId == null) ...[
                             const SizedBox(width: 10),
                             Expanded(
@@ -1543,14 +1517,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                                         : () {
                                           if (_formKey.currentState!
                                               .validate()) {
-                                            // Tampilkan modal pilihan
                                             _showBulkSubmitDialog();
                                           }
                                         },
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size(double.infinity, 50),
-                                  backgroundColor:
-                                      Colors.blueAccent, // Warna berbeda
+                                  backgroundColor: Colors.blueAccent,
                                   foregroundColor: Colors.white,
                                 ),
                                 child: const Text('Multi Submit'),
@@ -1580,7 +1552,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     return TextFormField(
       controller: controller,
       textAlign: textAlign,
-      style: TextStyle(fontSize: fontSize), // Tambahkan style untuk font size
+      style: TextStyle(fontSize: fontSize),
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
@@ -1618,10 +1590,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                   final item = _itemSuggestions[index];
                   return ListTile(
                     dense: true,
-                    title: Text(item.cleanedName), // Display cleaned name
-                    subtitle: Text(
-                      '${item.packaging} - ${item.type}',
-                    ), // Display packaging and type for clarity
+                    title: Text(item.cleanedName),
+                    subtitle: Text('${item.packaging} - ${item.type}'),
                     onTap: () {
                       setState(() {
                         _namaController.text = item.cleanedName;
@@ -1688,7 +1658,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const Text(
-                  'Warehouse', // Judul diubah
+                  'Warehouse',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -1711,11 +1681,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                 borderRadius: BorderRadius.circular(10),
                 child:
                     _isLoading
-                        ? Container(
-                          color: Colors.white,
-                        ) // TAMPILKAN INI SAAT LOADING
+                        ? Container(color: Colors.white)
                         : MobileScanner(
-                          // JIKA TIDAK LOADING, TAMPILKAN SCANNER
                           controller: _controller,
                           onDetect: (capture) async {
                             if (_scannedBarcode != null || _isLoading) return;
