@@ -734,7 +734,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           itemsToSubmit.addAll(bulkItems);
         }
 
-        final success = await _lclService.saveLPBDetailBulk(
+        final success = await _lclService.saveLPBDetail(
           number_lpb_items: itemsToSubmit,
           weight: weight,
           height: height,

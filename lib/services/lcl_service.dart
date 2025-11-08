@@ -129,7 +129,7 @@ class LCLService {
   }
 
   Future<bool> saveLPBDetail({
-    required String number_lpb_item,
+    required List<String> number_lpb_items,
     required String weight,
     required String height,
     required String length,
@@ -149,9 +149,13 @@ class LCLService {
       return false;
     }
 
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/store_lpb_detail'),
+    );
+
     final fields = {
       'token': token,
-      'number_lpb_item': number_lpb_item.trim(),
       'weight': weight.trim(),
       'height': height.trim(),
       'length': length.trim(),
@@ -172,15 +176,20 @@ class LCLService {
     if (keterangan != null) {
       fields['keterangan'] = keterangan.trim();
     }
-
     if (deleteExistingFoto) {
       fields['foto_terima_barang'] = '';
     }
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/store_lpb_detail'),
-    )..fields.addAll(fields);
+    request.fields.addAll(fields);
+
+    for (String itemCode in number_lpb_items) {
+      request.files.add(
+        http.MultipartFile.fromString(
+          'number_lpb_item[]', // <-- PLURAL 'items' + brackets
+          itemCode.trim(),
+        ),
+      );
+    }
 
     if (foto_terima_barang != null) {
       final fileStream = http.ByteStream(foto_terima_barang.openRead());
@@ -195,17 +204,15 @@ class LCLService {
       request.files.add(multipartFile);
     }
 
-    print('Sending request with fields: $fields');
+    print('Sending request with fields: ${request.fields}');
     if (foto_terima_barang != null) {
       print('Sending file: ${foto_terima_barang.path}');
-    }
-    if (deleteExistingFoto) {
-      print('Flagging to delete existing photo.');
     }
 
     try {
       final response = await request.send();
       final resBody = await response.stream.bytesToString();
+
       if (resBody.trim().startsWith('<!DOCTYPE') ||
           resBody.trim().startsWith('<div')) {
         print('Server returned HTML error: $resBody');
@@ -219,7 +226,7 @@ class LCLService {
         final newToken = await _authService.softLoginRefresh();
         if (newToken != null) {
           return saveLPBDetail(
-            number_lpb_item: number_lpb_item,
+            number_lpb_items: number_lpb_items,
             weight: weight,
             height: height,
             length: length,
@@ -288,52 +295,6 @@ class LCLService {
       print('Error updating notification: $e');
       return false;
     }
-  }
-
-  Future<bool> saveLPBDetailBulk({
-    required List<String> number_lpb_items,
-    required String weight,
-    required String height,
-    required String length,
-    required String width,
-    required String nama_barang,
-    required String tipe_barang,
-    String? barang_id,
-    String? container_number,
-    String? status,
-    String? keterangan,
-    File? foto_terima_barang,
-    bool deleteExistingFoto = false,
-  }) async {
-    // Loop melalui setiap item code
-    for (String itemCode in number_lpb_items) {
-      print('Submitting for item: $itemCode');
-      final success = await saveLPBDetail(
-        number_lpb_item: itemCode, // Kirim satu per satu
-        weight: weight,
-        height: height,
-        length: length,
-        width: width,
-        nama_barang: nama_barang,
-        tipe_barang: tipe_barang,
-        barang_id: barang_id,
-        container_number: container_number,
-        status: status,
-        keterangan: keterangan,
-        foto_terima_barang: foto_terima_barang,
-        deleteExistingFoto: deleteExistingFoto,
-      );
-
-      // Jika salah satu gagal, hentikan proses dan kembalikan false
-      if (!success) {
-        print('Failed to submit item: $itemCode. Aborting bulk save.');
-        return false;
-      }
-    }
-
-    // Jika semua berhasil, kembalikan true
-    print('Bulk save completed successfully.');
-    return true;
   }
 
   Future<bool> updateStatusReadyToShip({
