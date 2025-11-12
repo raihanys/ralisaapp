@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import 'api_config.dart';
@@ -111,42 +112,77 @@ class InvoicerService {
     String? paymentAmount,
     String? paymentDifference,
     String? paymentNotes,
+    File? buktiPembayaranInvoice,
   }) async {
-    try {
-      final response = await _handleRequest((token) {
-        Map<String, dynamic> payload = {
-          'invoice_id': int.parse(invoiceId),
-          'payment_type': int.parse(paymentType),
-        };
+    final token = await authService.getValidToken();
+    if (token == null) {
+      print('Token is null!');
+      return false;
+    }
 
-        if (paymentAmount != null) {
-          payload['payment_amount'] = int.parse(
-            paymentAmount.replaceAll('.', ''),
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/update_status_invoice'),
+    );
+
+    // Menambahkan fields (sebagai String)
+    Map<String, String> fields = {
+      'token': token,
+      'invoice_id': invoiceId,
+      'payment_type': paymentType,
+    };
+
+    if (paymentAmount != null) {
+      fields['payment_amount'] = paymentAmount.replaceAll('.', '');
+    }
+    if (paymentDifference != null) {
+      fields['is_diff'] = paymentDifference;
+    }
+    if (paymentNotes != null && paymentNotes.isNotEmpty) {
+      fields['notes'] = paymentNotes;
+    }
+
+    request.fields.addAll(fields);
+
+    // Menambahkan file jika ada
+    if (buktiPembayaranInvoice != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'bukti_pembayaran_invoice',
+          buktiPembayaranInvoice.path,
+          filename: buktiPembayaranInvoice.path.split('/').last,
+        ),
+      );
+    }
+
+    print('Sending Invoice update with fields: ${request.fields}');
+    if (buktiPembayaranInvoice != null) {
+      print('Sending Invoice file: ${buktiPembayaranInvoice.path}');
+    }
+
+    try {
+      final response = await request.send();
+      final resBody = await response.stream.bytesToString();
+      final data = jsonDecode(resBody);
+
+      // Handle refresh token (logic dari lcl_service)
+      if (response.statusCode == 401 ||
+          (data['error'] == true && data['message'] == 'Token Not Found')) {
+        final newToken = await authService.softLoginRefresh();
+        if (newToken != null) {
+          // Coba lagi dengan token baru
+          return updateInvoiceStatus(
+            invoiceId: invoiceId,
+            paymentType: paymentType,
+            paymentAmount: paymentAmount,
+            paymentDifference: paymentDifference,
+            paymentNotes: paymentNotes,
+            buktiPembayaranInvoice: buktiPembayaranInvoice,
           );
         }
-
-        if (paymentDifference != null) {
-          payload['is_diff'] = int.parse(paymentDifference);
-        }
-        if (paymentNotes != null && paymentNotes.isNotEmpty) {
-          payload['notes'] = paymentNotes;
-        }
-
-        return http
-            .post(
-              Uri.parse('$baseUrl/update_status_invoice'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'token': token, 'data': payload}),
-            )
-            .timeout(const Duration(seconds: 15));
-      });
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['status'] == true;
-      } else {
-        throw Exception('HTTP error: ${response.statusCode}');
       }
+
+      return response.statusCode == 200 && data['status'] == true;
     } catch (e) {
       print('Error updating invoice status: $e');
       rethrow;
@@ -233,42 +269,77 @@ class InvoicerService {
     String? paymentAmount,
     String? paymentDifference,
     String? paymentNotes,
+    File? buktiPembayaranCst,
   }) async {
-    try {
-      final response = await _handleRequest((token) {
-        Map<String, dynamic> payload = {
-          'ship_id': int.parse(shipId),
-          'payment_type': int.parse(paymentType),
-        };
+    final token = await authService.getValidToken();
+    if (token == null) {
+      print('Token is null!');
+      return false;
+    }
 
-        if (paymentAmount != null) {
-          payload['payment_amount'] = int.parse(
-            paymentAmount.replaceAll('.', ''),
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/update_status_cst'),
+    );
+
+    // Menambahkan fields (sebagai String)
+    Map<String, String> fields = {
+      'token': token,
+      'ship_id': shipId,
+      'payment_type': paymentType,
+    };
+
+    if (paymentAmount != null) {
+      fields['payment_amount'] = paymentAmount.replaceAll('.', '');
+    }
+    if (paymentDifference != null) {
+      fields['is_diff'] = paymentDifference;
+    }
+    if (paymentNotes != null && paymentNotes.isNotEmpty) {
+      fields['notes'] = paymentNotes;
+    }
+
+    request.fields.addAll(fields);
+
+    // Menambahkan file jika ada
+    if (buktiPembayaranCst != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'bukti_pembayaran_cst',
+          buktiPembayaranCst.path,
+          filename: buktiPembayaranCst.path.split('/').last,
+        ),
+      );
+    }
+
+    print('Sending CST update with fields: ${request.fields}');
+    if (buktiPembayaranCst != null) {
+      print('Sending CST file: ${buktiPembayaranCst.path}');
+    }
+
+    try {
+      final response = await request.send();
+      final resBody = await response.stream.bytesToString();
+      final data = jsonDecode(resBody);
+
+      // Handle refresh token (logic dari lcl_service)
+      if (response.statusCode == 401 ||
+          (data['error'] == true && data['message'] == 'Token Not Found')) {
+        final newToken = await authService.softLoginRefresh();
+        if (newToken != null) {
+          // Coba lagi dengan token baru
+          return updateCSTStatus(
+            shipId: shipId,
+            paymentType: paymentType,
+            paymentAmount: paymentAmount,
+            paymentDifference: paymentDifference,
+            paymentNotes: paymentNotes,
+            buktiPembayaranCst: buktiPembayaranCst,
           );
         }
-
-        if (paymentDifference != null) {
-          payload['is_diff'] = int.parse(paymentDifference);
-        }
-        if (paymentNotes != null && paymentNotes.isNotEmpty) {
-          payload['notes'] = paymentNotes;
-        }
-
-        return http
-            .post(
-              Uri.parse('$baseUrl/update_status_cst'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'token': token, 'data': payload}),
-            )
-            .timeout(const Duration(seconds: 15));
-      });
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['status'] == true;
-      } else {
-        throw Exception('HTTP error: ${response.statusCode}');
       }
+
+      return response.statusCode == 200 && data['status'] == true;
     } catch (e) {
       print('Error updating CST status: $e');
       rethrow;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../login_screen.dart';
 import 'shipping_container_warehouse_mks.dart';
-import 'closing_container_warehouse_mks.dart';
+import 'process_container_warehouse_mks.dart';
 
 class MainWarehouseMks extends StatefulWidget {
   const MainWarehouseMks({Key? key}) : super(key: key);
@@ -22,7 +22,7 @@ class _MainWarehouseMksState extends State<MainWarehouseMks> {
         title = 'Arrival Container';
         break;
       case 1:
-        title = 'Closing Container';
+        title = 'On Process Container';
         break;
     }
 
@@ -106,7 +106,7 @@ class _MainWarehouseMksState extends State<MainWarehouseMks> {
             BottomNavigationBarItem(
               icon: Icon(Icons.archive_outlined),
               activeIcon: Icon(Icons.archive),
-              label: 'Closing',
+              label: 'On Process',
             ),
           ],
         ),
@@ -127,7 +127,7 @@ class _MainWarehouseMksState extends State<MainWarehouseMks> {
         index: _currentIndex,
         children: const [
           ShippingContainerWarehouseMks(),
-          ClosingContainerWarehouseMks(),
+          ProcessContainerWarehouseMks(),
         ],
       ),
       bottomNavigationBar: _buildFloatingNavBar(theme),

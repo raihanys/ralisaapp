@@ -204,6 +204,7 @@ class LCLService {
       request.files.add(multipartFile);
     }
 
+    print('Sending request with files: ${request.files}');
     print('Sending request with fields: ${request.fields}');
     if (foto_terima_barang != null) {
       print('Sending file: ${foto_terima_barang.path}');
