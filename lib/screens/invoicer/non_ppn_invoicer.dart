@@ -4,6 +4,10 @@ import '../../services/auth_service.dart';
 import '../../services/invoicer_service.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 
 class NonPpnInvoicer extends StatefulWidget {
   final String? invoicingCode;
@@ -75,6 +79,8 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
     String? paymentAmount,
     String? paymentDifference,
     String? paymentNotes,
+    File? buktiPembayaranCst,
+    String? bankId,
   }) async {
     try {
       final success = await _invoicerService.updateCSTStatus(
@@ -83,6 +89,8 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
         paymentAmount: paymentAmount,
         paymentDifference: paymentDifference,
         paymentNotes: paymentNotes,
+        buktiPembayaranCst: buktiPembayaranCst,
+        bankId: bankId,
       );
 
       if (success) {
@@ -288,12 +296,15 @@ class CurrencyInputFormatter extends TextInputFormatter {
 class CSTDetailModal extends StatefulWidget {
   final Map<String, dynamic> cst;
   final String? invoicingCode;
+
   final Function({
     required String shipId,
     required String paymentType,
     String? paymentAmount,
     String? paymentDifference,
     String? paymentNotes,
+    File? buktiPembayaranCst,
+    String? bankId,
   })
   onSave;
 
@@ -319,6 +330,19 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
   String? _selectedDifference;
   bool _showNotesField = false;
   final TextEditingController _notesController = TextEditingController();
+
+  // Variabel baru untuk FOTO
+  File? _fotoFile;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _showFotoUpload = false;
+
+  // Variabel baru untuk BANK
+  String? _selectedBankId;
+  bool _showBankDropdown = false;
+  final List<Map<String, String>> _bankOptions = [
+    {'id': '13', 'name': 'BCA - 1628.111.111 - PT. SULAWESI JAYA RAYA'},
+    {'id': '14', 'name': 'BCA - 162.888.1234 - TIFFANY YUANITA RUNGKAT'},
+  ];
 
   @override
   void initState() {
@@ -363,6 +387,41 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
     }
   }
 
+  // === Fungsi baru untuk FOTO (dari warehouse_admlcl.dart) ===
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(source: source);
+      if (pickedFile == null) return;
+
+      final sourcePath = pickedFile.path;
+      final tempDir = await getTemporaryDirectory();
+      final targetPath =
+          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        sourcePath,
+        targetPath,
+        quality: 90,
+      );
+
+      if (compressedFile == null) {
+        print('Kompresi gambar gagal.');
+        return;
+      }
+
+      setState(() {
+        _fotoFile = File(compressedFile.path);
+      });
+    } catch (e) {
+      print('Error picking and compressing image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal memproses gambar: $e')));
+      }
+    }
+  }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -389,26 +448,26 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
       return;
     }
 
-    if (_selectedPaymentType == '1' && _amountController.text.isEmpty) {
+    if (_amountController.text.isEmpty) {
       _showErrorDialog('Masukkan jumlah pembayaran');
       return;
     }
-
-    if (_selectedPaymentType == '1' && _selectedDifference == null) {
+    if (_selectedDifference == null) {
       _showErrorDialog('Pilih status selisih pembayaran');
       return;
     }
-
-    // Validasi jika tunai dan ada selisih, notes harus diisi
-    if (_selectedPaymentType == '1' &&
-        _selectedDifference == '1' &&
-        _notesController.text.isEmpty) {
-      _showErrorDialog('Harap isi keterangan selisih');
+    if (_fotoFile == null) {
+      _showErrorDialog('Harap upload bukti pembayaran');
       return;
     }
 
-    // Validasi jika ada selisih, jumlah bayar tidak boleh sama dengan total
-    if (_selectedPaymentType == '1' && _selectedDifference == '1') {
+    // Validasi Selisih
+    if (_selectedDifference == '1') {
+      if (_notesController.text.isEmpty) {
+        _showErrorDialog('Harap isi keterangan selisih');
+        return;
+      }
+
       final totalAmountString = widget.cst['total']?.toString() ?? '0';
       final totalAmount = int.tryParse(totalAmountString) ?? 0;
 
@@ -423,6 +482,11 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
       }
     }
 
+    if (_selectedPaymentType == '2' && _selectedBankId == null) {
+      _showErrorDialog('Pilih rekening tujuan untuk metode Transfer');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -431,16 +495,11 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
         .onSave(
           shipId: widget.cst['ship_id'].toString(),
           paymentType: _selectedPaymentType!,
-          paymentAmount:
-              _selectedPaymentType == '1'
-                  ? _amountController.text.replaceAll('.', '')
-                  : null,
-          paymentDifference:
-              _selectedPaymentType == '1' ? _selectedDifference : null,
-          paymentNotes:
-              _selectedPaymentType == '1' && _selectedDifference == '1'
-                  ? _notesController.text
-                  : null,
+          paymentAmount: _amountController.text.replaceAll('.', ''),
+          paymentDifference: _selectedDifference,
+          paymentNotes: _showNotesField ? _notesController.text : null,
+          buktiPembayaranCst: _fotoFile,
+          bankId: _selectedBankId,
         )
         .catchError((error) {
           if (mounted) {
@@ -493,7 +552,6 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Judul dan tombol close
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -519,7 +577,6 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
               ),
               const SizedBox(height: 20),
 
-              // Konten yang bisa di-scroll
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -557,19 +614,59 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                         onChanged: (String? newValue) {
                           setState(() {
                             _selectedPaymentType = newValue;
-                            _showAmountField = newValue == '1';
-                            if (newValue != '1') {
-                              _selectedDifference = null;
-                              _showNotesField = false;
-                              _notesController.clear();
+
+                            _selectedDifference = null;
+                            _showNotesField = false;
+                            _notesController.clear();
+                            _fotoFile = null;
+                            _selectedBankId = null;
+
+                            if (newValue == '1') {
+                              // Tunai
+                              _showAmountField = true;
+                              _showFotoUpload = true;
+                              _showBankDropdown = false;
+                            } else if (newValue == '2') {
+                              // Transfer
+                              _showAmountField = true;
+                              _showFotoUpload = true;
+                              _showBankDropdown = true;
+                            } else {
+                              // Batal pilih (null)
+                              _showAmountField = false;
+                              _showFotoUpload = false;
+                              _showBankDropdown = false;
                             }
                           });
                         },
                       ),
                       const SizedBox(height: 15),
 
-                      // Field Amount hanya untuk Tunai
-                      if (_showAmountField && widget.invoicingCode != '1') ...[
+                      if (_showBankDropdown) ...[
+                        DropdownButtonFormField<String>(
+                          value: _selectedBankId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Rekening Tujuan',
+                            border: OutlineInputBorder(),
+                          ),
+                          items:
+                              _bankOptions.map((bank) {
+                                return DropdownMenuItem<String>(
+                                  value: bank['id'],
+                                  child: Text(bank['name']!),
+                                );
+                              }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedBankId = newValue;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 15),
+                      ],
+
+                      if (_showAmountField) ...[
                         TextFormField(
                           controller: _amountController,
                           decoration: const InputDecoration(
@@ -581,7 +678,6 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                           inputFormatters: [CurrencyInputFormatter()],
                         ),
                         const SizedBox(height: 15),
-
                         DropdownButtonFormField<String>(
                           value: _selectedDifference,
                           isExpanded: true,
@@ -599,15 +695,16 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                           onChanged: (String? newValue) {
                             setState(() {
                               _selectedDifference = newValue;
-                              _showNotesField = newValue == '1';
-                              if (!_showNotesField) {
+                              if (newValue == '1') {
+                                _showNotesField = true;
+                              } else {
+                                _showNotesField = false;
                                 _notesController.clear();
                               }
                             });
                           },
                         ),
                         const SizedBox(height: 15),
-
                         if (_showNotesField)
                           TextFormField(
                             controller: _notesController,
@@ -617,6 +714,152 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                               hintText: 'Jelaskan alasan selisih pembayaran...',
                             ),
                           ),
+                        const SizedBox(height: 15),
+                      ],
+
+                      if (_showFotoUpload && _fotoFile == null) ...[
+                        Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                icon: const Icon(Icons.camera_alt),
+                                label: const Text("Upload Bukti Pembayaran"),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: const Text(
+                                          "Pilih Sumber Gambar",
+                                        ),
+                                        actions: [
+                                          TextButton.icon(
+                                            icon: const Icon(Icons.camera_alt),
+                                            label: const Text("Kamera"),
+                                            onPressed: () async {
+                                              Navigator.of(context).pop();
+                                              await _pickImage(
+                                                ImageSource.camera,
+                                              );
+                                              setState(() {});
+                                            },
+                                          ),
+                                          TextButton.icon(
+                                            icon: const Icon(Icons.image),
+                                            label: const Text("Galeri"),
+                                            onPressed: () async {
+                                              Navigator.of(context).pop();
+                                              await _pickImage(
+                                                ImageSource.gallery,
+                                              );
+                                              setState(() {});
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      if (_fotoFile != null) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: GestureDetector(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) {
+                                      return Dialog(
+                                        insetPadding: const EdgeInsets.all(16),
+                                        backgroundColor: Colors.transparent,
+                                        child: Stack(
+                                          children: [
+                                            InteractiveViewer(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: Image.file(
+                                                  _fotoFile!,
+                                                  fit: BoxFit.contain,
+                                                  width: double.infinity,
+                                                ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top: 10,
+                                              right: 10,
+                                              child: ElevatedButton(
+                                                onPressed:
+                                                    () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).pop(),
+                                                style: ElevatedButton.styleFrom(
+                                                  shape: const CircleBorder(),
+                                                  backgroundColor: Colors.red,
+                                                  padding: const EdgeInsets.all(
+                                                    10,
+                                                  ),
+                                                  minimumSize: const Size(
+                                                    40,
+                                                    40,
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                                child: Image.file(
+                                  _fotoFile!,
+                                  height: 120,
+                                  width: 120,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _fotoFile = null;
+                                  });
+                                },
+                                child: const Text(
+                                  'Hapus Foto',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                       ],
                     ],
                   ),

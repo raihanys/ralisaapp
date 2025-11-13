@@ -113,6 +113,7 @@ class InvoicerService {
     String? paymentDifference,
     String? paymentNotes,
     File? buktiPembayaranInvoice,
+    String? bankId,
   }) async {
     final token = await authService.getValidToken();
     if (token == null) {
@@ -125,7 +126,6 @@ class InvoicerService {
       Uri.parse('$baseUrl/update_status_invoice'),
     );
 
-    // Menambahkan fields (sebagai String)
     Map<String, String> fields = {
       'token': token,
       'invoice_id': invoiceId,
@@ -140,6 +140,9 @@ class InvoicerService {
     }
     if (paymentNotes != null && paymentNotes.isNotEmpty) {
       fields['notes'] = paymentNotes;
+    }
+    if (bankId != null) {
+      fields['bank_id'] = bankId;
     }
 
     request.fields.addAll(fields);
@@ -165,7 +168,6 @@ class InvoicerService {
       final resBody = await response.stream.bytesToString();
       final data = jsonDecode(resBody);
 
-      // Handle refresh token (logic dari lcl_service)
       if (response.statusCode == 401 ||
           (data['error'] == true && data['message'] == 'Token Not Found')) {
         final newToken = await authService.softLoginRefresh();
@@ -178,6 +180,7 @@ class InvoicerService {
             paymentDifference: paymentDifference,
             paymentNotes: paymentNotes,
             buktiPembayaranInvoice: buktiPembayaranInvoice,
+            bankId: bankId,
           );
         }
       }
@@ -270,6 +273,7 @@ class InvoicerService {
     String? paymentDifference,
     String? paymentNotes,
     File? buktiPembayaranCst,
+    String? bankId,
   }) async {
     final token = await authService.getValidToken();
     if (token == null) {
@@ -282,7 +286,6 @@ class InvoicerService {
       Uri.parse('$baseUrl/update_status_cst'),
     );
 
-    // Menambahkan fields (sebagai String)
     Map<String, String> fields = {
       'token': token,
       'ship_id': shipId,
@@ -297,6 +300,9 @@ class InvoicerService {
     }
     if (paymentNotes != null && paymentNotes.isNotEmpty) {
       fields['notes'] = paymentNotes;
+    }
+    if (bankId != null) {
+      fields['bank_id'] = bankId;
     }
 
     request.fields.addAll(fields);
@@ -322,7 +328,6 @@ class InvoicerService {
       final resBody = await response.stream.bytesToString();
       final data = jsonDecode(resBody);
 
-      // Handle refresh token (logic dari lcl_service)
       if (response.statusCode == 401 ||
           (data['error'] == true && data['message'] == 'Token Not Found')) {
         final newToken = await authService.softLoginRefresh();
@@ -335,6 +340,7 @@ class InvoicerService {
             paymentDifference: paymentDifference,
             paymentNotes: paymentNotes,
             buktiPembayaranCst: buktiPembayaranCst,
+            bankId: bankId,
           );
         }
       }
