@@ -347,6 +347,11 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
     {'id': '14', 'name': 'BCA - 162.888.1234 - TIFFANY YUANITA RUNGKAT'},
   ];
 
+  // === VARIABEL BARU UNTUK STATUS TRANSFER ===
+  String? _selectedTransferStatus; // 'lunas' atau 'belum_transfer'
+  bool _showTransferStatusDropdown = false;
+  // ==========================================
+
   @override
   void initState() {
     super.initState();
@@ -452,47 +457,120 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
       return;
     }
 
-    // Validasi Wajib untuk Tunai ('1') dan Transfer ('2')
-    if (_amountController.text.isEmpty) {
-      _showErrorDialog('Masukkan jumlah pembayaran');
-      return;
-    }
-    if (_selectedDifference == null) {
-      _showErrorDialog('Pilih status selisih pembayaran');
-      return;
-    }
-    if (_fotoFile == null) {
-      // Foto selalu wajib
-      _showErrorDialog('Harap upload bukti pembayaran');
-      return;
-    }
+    // Siapkan variabel untuk dikirim
+    String? paymentAmountValue;
+    String? paymentDifferenceValue;
+    String? paymentNotesValue;
+    String? bankIdValue;
+    File? fileValue = _fotoFile;
 
-    // Validasi Selisih
-    if (_selectedDifference == '1') {
-      if (_notesController.text.isEmpty) {
-        _showErrorDialog('Harap isi keterangan selisih');
+    // Logika berdasarkan Tipe Pembayaran
+    if (_selectedPaymentType == '1') {
+      // === Logika untuk TUNAI ===
+      if (_amountController.text.isEmpty) {
+        _showErrorDialog('Masukkan jumlah pembayaran');
+        return;
+      }
+      if (_selectedDifference == null) {
+        _showErrorDialog('Pilih status selisih pembayaran');
+        return;
+      }
+      if (_fotoFile == null) {
+        _showErrorDialog('Harap upload bukti pembayaran');
         return;
       }
 
-      // Cek jumlah bayar vs total
-      final totalAmountString = widget.invoice['total']?.toString() ?? '0';
-      final totalAmount = int.tryParse(totalAmountString) ?? 0;
+      // Validasi Selisih
+      if (_selectedDifference == '1') {
+        if (_notesController.text.isEmpty) {
+          _showErrorDialog('Harap isi keterangan selisih');
+          return;
+        }
+        // Cek jumlah bayar vs total
+        final totalAmountString = widget.invoice['total']?.toString() ?? '0';
+        final totalAmount = int.tryParse(totalAmountString) ?? 0;
+        final paymentAmountString = _amountController.text.replaceAll('.', '');
+        final paymentAmount = int.tryParse(paymentAmountString) ?? 0;
 
-      final paymentAmountString = _amountController.text.replaceAll('.', '');
-      final paymentAmount = int.tryParse(paymentAmountString) ?? 0;
+        if (paymentAmount == totalAmount) {
+          _showErrorDialog(
+            'Jumlah pembayaran tidak boleh sama dengan total tagihan jika memilih opsi "Selisih".',
+          );
+          return;
+        }
+      }
 
-      if (paymentAmount == totalAmount) {
-        _showErrorDialog(
-          'Jumlah pembayaran tidak boleh sama dengan total tagihan jika memilih opsi "Selisih".',
-        );
+      // Set nilai untuk Tunai
+      paymentAmountValue = _amountController.text.replaceAll('.', '');
+      paymentDifferenceValue = _selectedDifference;
+      paymentNotesValue = _showNotesField ? _notesController.text : null;
+      bankIdValue = null; // Tunai tidak perlu bank
+    } else if (_selectedPaymentType == '2') {
+      // === Logika untuk TRANSFER ===
+      if (_selectedTransferStatus == null) {
+        _showErrorDialog('Pilih status transfer (Lunas / Belum Transfer)');
         return;
       }
-    }
 
-    // Validasi Wajib Bank untuk Transfer
-    if (_selectedPaymentType == '2' && _selectedBankId == null) {
-      _showErrorDialog('Pilih rekening tujuan untuk metode Transfer');
-      return;
+      if (_selectedTransferStatus == 'lunas') {
+        // --- Validasi Lunas ---
+        if (_amountController.text.isEmpty) {
+          _showErrorDialog('Masukkan jumlah pembayaran');
+          return;
+        }
+        if (_selectedDifference == null) {
+          _showErrorDialog('Pilih status selisih pembayaran');
+          return;
+        }
+        if (_fotoFile == null) {
+          _showErrorDialog('Harap upload bukti pembayaran');
+          return;
+        }
+        if (_selectedBankId == null) {
+          _showErrorDialog('Pilih rekening tujuan untuk metode Transfer');
+          return;
+        }
+
+        // Validasi Selisih (sama seperti tunai)
+        if (_selectedDifference == '1') {
+          if (_notesController.text.isEmpty) {
+            _showErrorDialog('Harap isi keterangan selisih');
+            return;
+          }
+          final totalAmountString = widget.invoice['total']?.toString() ?? '0';
+          final totalAmount = int.tryParse(totalAmountString) ?? 0;
+          final paymentAmountString = _amountController.text.replaceAll(
+            '.',
+            '',
+          );
+          final paymentAmount = int.tryParse(paymentAmountString) ?? 0;
+
+          if (paymentAmount == totalAmount) {
+            _showErrorDialog(
+              'Jumlah pembayaran tidak boleh sama dengan total tagihan jika memilih opsi "Selisih".',
+            );
+            return;
+          }
+        }
+
+        // Set nilai untuk Transfer Lunas
+        paymentAmountValue = _amountController.text.replaceAll('.', '');
+        paymentDifferenceValue = _selectedDifference;
+        paymentNotesValue = _showNotesField ? _notesController.text : null;
+        bankIdValue = _selectedBankId;
+      } else {
+        // --- Validasi Belum Transfer ---
+        if (_fotoFile == null) {
+          _showErrorDialog('Harap upload Tanda Terima');
+          return;
+        }
+
+        // Set nilai untuk Belum Transfer
+        paymentAmountValue = null;
+        paymentDifferenceValue = "1";
+        paymentNotesValue = "Faktur Telah Dikirim";
+        bankIdValue = null;
+      }
     }
 
     setState(() {
@@ -503,11 +581,11 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
         .onSave(
           invoiceId: widget.invoice['invoice_id'].toString(),
           paymentType: _selectedPaymentType!,
-          paymentAmount: _amountController.text.replaceAll('.', ''),
-          paymentDifference: _selectedDifference,
-          paymentNotes: _showNotesField ? _notesController.text : null,
-          buktiPembayaranInvoice: _fotoFile,
-          bankId: _selectedBankId,
+          paymentAmount: paymentAmountValue,
+          paymentDifference: paymentDifferenceValue,
+          paymentNotes: paymentNotesValue,
+          buktiPembayaranInvoice: fileValue,
+          bankId: bankIdValue,
         )
         .catchError((error) {
           if (mounted) {
@@ -584,7 +662,6 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
                 ],
               ),
               const SizedBox(height: 20),
-
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -628,6 +705,12 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
                           setState(() {
                             _selectedPaymentType = newValue;
 
+                            // Reset semua field turunan
+                            _selectedTransferStatus = null;
+                            _showTransferStatusDropdown = false;
+                            _showAmountField = false;
+                            _showFotoUpload = false;
+                            _showBankDropdown = false;
                             _selectedDifference = null;
                             _showNotesField = false;
                             _notesController.clear();
@@ -635,26 +718,69 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
                             _selectedBankId = null;
 
                             if (newValue == '1') {
-                              // Tunai
+                              // Tunai: Tampilkan field Lunas
                               _showAmountField = true;
                               _showFotoUpload = true;
                               _showBankDropdown = false;
                             } else if (newValue == '2') {
-                              // Transfer
-                              _showAmountField = true;
-                              _showFotoUpload = true;
-                              _showBankDropdown = true;
-                            } else {
-                              // Batal pilih (null)
-                              _showAmountField = false;
-                              _showFotoUpload = false;
-                              _showBankDropdown = false;
+                              // Transfer: Tampilkan dropdown Lunas/Belum
+                              _showTransferStatusDropdown = true;
+                              // Field lain akan di-trigger oleh dropdown tsb
                             }
                           });
                         },
                       ),
                       const SizedBox(height: 15),
 
+                      // === DROPDOWN BARU: STATUS TRANSFER ===
+                      if (_showTransferStatusDropdown) ...[
+                        DropdownButtonFormField<String>(
+                          value: _selectedTransferStatus,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Status Transfer',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'lunas',
+                              child: Text('Lunas'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'belum_transfer',
+                              child: Text('Belum Transfer'),
+                            ),
+                          ],
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedTransferStatus = newValue;
+
+                              // Reset field di bawahnya
+                              _showAmountField = false;
+                              _showFotoUpload = false;
+                              _showBankDropdown = false;
+                              _selectedDifference = null;
+                              _showNotesField = false;
+                              _notesController.clear();
+                              _fotoFile = null;
+                              _selectedBankId = null;
+
+                              if (newValue == 'lunas') {
+                                // Tampilkan semua field untuk lunas
+                                _showAmountField = true;
+                                _showFotoUpload = true;
+                                _showBankDropdown = true;
+                              } else if (newValue == 'belum_transfer') {
+                                // Hanya tampilkan upload foto
+                                _showFotoUpload = true;
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 15),
+                      ],
+
+                      // ======================================
                       if (_showBankDropdown) ...[
                         DropdownButtonFormField<String>(
                           value: _selectedBankId,
@@ -744,7 +870,13 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
                             children: [
                               TextButton.icon(
                                 icon: const Icon(Icons.camera_alt),
-                                label: const Text("Upload Bukti Pembayaran"),
+                                // === UBAH LABEL TOMBOL FOTO ===
+                                label: Text(
+                                  _selectedTransferStatus == 'belum_transfer'
+                                      ? "Upload Tanda Terima"
+                                      : "Upload Bukti Pembayaran",
+                                ),
+                                // ==============================
                                 onPressed: () {
                                   showDialog(
                                     context: context,
@@ -880,7 +1012,6 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
