@@ -183,6 +183,7 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                   final invoice = _invoices[index];
                   final invoiceNumber = invoice['invoice_number'] ?? '-';
                   final clientName = invoice['name'] ?? '-';
+                  final clientContact = invoice['contact'] ?? '-';
                   final total = invoice['total'] ?? '0';
                   final invoiceDate = invoice['tanggal_invoice'] ?? '-';
 
@@ -209,7 +210,9 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                       contentPadding: const EdgeInsets.all(16),
                       title: Text(
                         '$invoiceNumber',
-                        style: theme.textTheme.titleMedium,
+                        style: theme.textTheme.titleSmall!.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,25 +222,47 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  'kepada: $clientName',
+                                  'Kepada : $clientName',
                                   style: theme.textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                           Row(
                             children: [
+                              Expanded(
+                                child: Text(
+                                  'Kontak : $clientContact',
+                                  style: theme.textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const Divider(height: 20),
+
+                          Row(
+                            children: [
                               Text(
-                                'Total: $formattedTotal',
+                                'Tgl. Dibuat : $invoiceDate',
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],
                           ),
+
+                          const Divider(height: 20),
+
                           Row(
                             children: [
-                              Text(
-                                'Tanggal: $invoiceDate',
-                                style: theme.textTheme.bodySmall,
+                              Expanded(
+                                child: Text(
+                                  'Total : $formattedTotal',
+                                  style: theme.textTheme.titleSmall!.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -673,9 +698,10 @@ class _InvoiceDetailModalState extends State<InvoiceDetailModal> {
                         invoice['invoice_number'] ?? '-',
                       ),
                       _buildDetailRow('Kepada', invoice['name'] ?? '-'),
+                      _buildDetailRow('Kontak', invoice['contact'] ?? '-'),
                       _buildDetailRow('Total Tagihan', formattedTotal),
                       _buildDetailRow(
-                        'Tanggal Invoice',
+                        'Tgl. Dibuat',
                         invoice['tanggal_invoice'] ?? '-',
                       ),
                       const SizedBox(height: 20),

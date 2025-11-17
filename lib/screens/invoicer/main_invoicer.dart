@@ -3,6 +3,7 @@ import '../../services/auth_service.dart';
 import '../login_screen.dart';
 import 'ppn_invoicer.dart';
 import 'non_ppn_invoicer.dart';
+import 'monitoring_invoicer.dart';
 
 class MainInvoicer extends StatefulWidget {
   const MainInvoicer({Key? key}) : super(key: key);
@@ -77,6 +78,7 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
         children: [
           PpnInvoicer(invoicingCode: widget.invoicingCode),
           NonPpnInvoicer(invoicingCode: widget.invoicingCode),
+          MonitoringInvoicer(invoicingCode: widget.invoicingCode),
         ],
       ),
       bottomNavigationBar: _buildFloatingNavBar(theme),
@@ -94,6 +96,10 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
         break;
       case 1:
         title = 'Non PPN';
+        subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
+        break;
+      case 2:
+        title = 'Monitoring';
         subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
         break;
     }
@@ -179,6 +185,11 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
               icon: Icon(Icons.receipt_outlined),
               activeIcon: Icon(Icons.receipt),
               label: 'Non PPN',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.monitor_outlined),
+              activeIcon: Icon(Icons.monitor),
+              label: 'Monitoring',
             ),
           ],
         ),

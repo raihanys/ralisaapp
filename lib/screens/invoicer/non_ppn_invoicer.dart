@@ -180,6 +180,7 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                   final cst = _cstList[index];
                   final shipNumber = cst['ship_number'] ?? '-';
                   final clientName = cst['name'] ?? '-';
+                  final clientContact = cst['contact'] ?? '-';
                   final total = cst['total'] ?? '0';
                   final cstDate = cst['tanggal_invoice'] ?? '-';
 
@@ -206,7 +207,9 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                       contentPadding: const EdgeInsets.all(16),
                       title: Text(
                         '$shipNumber',
-                        style: theme.textTheme.titleMedium,
+                        style: theme.textTheme.titleSmall!.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,25 +219,47 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  'kepada: $clientName',
+                                  'Kepada : $clientName',
                                   style: theme.textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                           Row(
                             children: [
+                              Expanded(
+                                child: Text(
+                                  'Kontak : $clientContact',
+                                  style: theme.textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const Divider(height: 20),
+
+                          Row(
+                            children: [
                               Text(
-                                'Total: $formattedTotal',
+                                'Tgl. Dibuat : $cstDate',
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],
                           ),
+
+                          const Divider(height: 20),
+
                           Row(
                             children: [
-                              Text(
-                                'Tanggal: $cstDate',
-                                style: theme.textTheme.bodySmall,
+                              Expanded(
+                                child: Text(
+                                  'Total : $formattedTotal',
+                                  style: theme.textTheme.titleSmall!.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -666,9 +691,13 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                     children: [
                       _buildDetailRow('No. CST', cst['ship_number'] ?? '-'),
                       _buildDetailRow('Kepada', cst['name'] ?? '-'),
+                      _buildDetailRow('Kontak', cst['contact'] ?? '-'),
                       _buildDetailRow('Kota Client', cst['city_client'] ?? '-'),
                       _buildDetailRow('Total Tagihan', formattedTotal),
-                      _buildDetailRow('Tanggal', cst['tanggal_invoice'] ?? '-'),
+                      _buildDetailRow(
+                        'Tgl. Dibuat',
+                        cst['tanggal_invoice'] ?? '-',
+                      ),
                       const SizedBox(height: 20),
 
                       Text(

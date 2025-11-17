@@ -351,4 +351,51 @@ class InvoicerService {
       rethrow;
     }
   }
+
+  Future<List<dynamic>> fetchMonitoringTagihan() async {
+    final String? username = await authService.getUsername();
+    if (username == null) {
+      throw Exception('Username tidak ditemukan. Harap login ulang.');
+    }
+
+    try {
+      final response = await _handleRequest((token) {
+        final uri = Uri.parse(
+          '$baseUrl/getMonitoringTagihan',
+        ).replace(queryParameters: {'token': token, 'petugas': username});
+        return http
+            .get(uri, headers: {'Content-Type': 'application/json'})
+            .timeout(const Duration(seconds: 15));
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Sesuaikan dengan format response kamu
+        if (data['status'] == true || data['code'] == 200) {
+          if (data['data'] != null && data['data'] is List) {
+            return data['data'];
+          } else {
+            return []; // Data null atau bukan list
+          }
+        } else {
+          return []; // Status false
+        }
+      } else if (response.statusCode == 404) {
+        print('Endpoint monitoring tidak ditemukan (404), list kosong');
+        return [];
+      } else {
+        throw Exception('HTTP error: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('timed out') ||
+          e.toString().contains('Connection') ||
+          e.toString().contains('404')) {
+        print('Network error monitoring, list kosong: $e');
+        return [];
+      }
+      print('Error fetching monitoring data: $e');
+      rethrow;
+    }
+  }
 }
