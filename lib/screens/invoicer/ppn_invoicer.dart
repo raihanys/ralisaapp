@@ -185,7 +185,7 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                   final clientName = invoice['name'] ?? '-';
                   final clientContact = invoice['contact'] ?? '-';
                   final total = invoice['total'] ?? '0';
-                  final invoiceDate = invoice['tanggal_invoice'] ?? '-';
+                  final invoiceDate = invoice['tanggal_ditugaskan'] ?? '-';
 
                   // Format currency
                   final formatter = NumberFormat.currency(
@@ -219,25 +219,29 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                         children: [
                           const SizedBox(height: 8),
                           Row(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start, // <-- INI WAJIB
                             children: [
+                              const Text(
+                                'Kepada : ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                               Expanded(
                                 child: Text(
-                                  'Kepada : $clientName',
-                                  style: theme.textTheme.bodySmall,
-                                  overflow: TextOverflow.ellipsis,
+                                  clientName,
+                                  style: theme.textTheme.titleSmall!.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 3,
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  'Kontak : $clientContact',
-                                  style: theme.textTheme.bodySmall,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                              const Text('Kontak : '),
+                              Expanded(child: Text(clientContact, maxLines: 2)),
                             ],
                           ),
 
@@ -246,7 +250,7 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
                           Row(
                             children: [
                               Text(
-                                'Tgl. Dibuat : $invoiceDate',
+                                'Tgl. Ditugaskan : $invoiceDate',
                                 style: theme.textTheme.bodySmall,
                               ),
                             ],

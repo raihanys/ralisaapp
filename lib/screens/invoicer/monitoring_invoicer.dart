@@ -236,23 +236,33 @@ class _MonitoringInvoicerState extends State<MonitoringInvoicer> {
 
                               // Info Klien
                               Row(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start, // <-- INI WAJIB
                                 children: [
+                                  const Text(
+                                    'Kepada : ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   Expanded(
                                     child: Text(
-                                      'Kepada : $clientName',
-                                      style: theme.textTheme.bodySmall,
-                                      overflow: TextOverflow.ellipsis,
+                                      clientName,
+                                      style: theme.textTheme.titleSmall!
+                                          .copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                      maxLines: 3,
                                     ),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 4),
                               Row(
                                 children: [
+                                  const Text('Kontak : '),
                                   Expanded(
-                                    child: Text(
-                                      'Kontak : $clientContact',
-                                      style: theme.textTheme.bodySmall,
-                                    ),
+                                    child: Text(clientContact, maxLines: 2),
                                   ),
                                 ],
                               ),
@@ -264,7 +274,7 @@ class _MonitoringInvoicerState extends State<MonitoringInvoicer> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      'tgl. Dibuat : ${formatDate(dateDibuat)}',
+                                      'tgl. Ditugaskan : ${formatDate(dateDibuat)}',
                                       style: theme.textTheme.bodySmall,
                                     ),
                                   ),
