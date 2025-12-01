@@ -131,6 +131,8 @@ class _ContainerScreenState extends State<ContainerScreen> {
     'Roll',
     'Ikat',
     'Batang',
+    'Koli',
+    'Unit',
   ];
   List<String> _uniquePackagingTypes = [];
 
