@@ -61,17 +61,15 @@ class _MonitoringInvoicerState extends State<MonitoringInvoicer> {
     if (status == null) return Colors.grey;
 
     switch (status.toLowerCase()) {
-      case 'invoice terkonfirmasi lunas':
+      case 'terkonfirmasi lunas':
         return Colors.green;
-      case 'cst terkonfirmasi lunas':
-        return Colors.green;
-      case 'invoice lunas':
-        return Colors.orange;
-      case 'cst lunas':
+      case 'lunas':
         return Colors.orange;
       case 'belum lunas/selisih':
         return Colors.deepOrange;
-      case 'faktur telah dikirim':
+      case 'CST terkirim':
+        return Colors.blue;
+      case 'Faktur terkirim':
         return Colors.blue;
       default:
         return Colors.grey;

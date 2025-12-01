@@ -184,7 +184,6 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                   final total = cst['total'] ?? '0';
                   final cstDate = cst['tanggal_ditugaskan'] ?? '-';
 
-                  // Format currency
                   final formatter = NumberFormat.currency(
                     locale: 'id_ID',
                     symbol: 'Rp. ',
@@ -216,8 +215,7 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                         children: [
                           const SizedBox(height: 8),
                           Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start, // <-- INI WAJIB
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
                                 'Kepada : ',
@@ -241,9 +239,7 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                               Expanded(child: Text(clientContact, maxLines: 2)),
                             ],
                           ),
-
                           const Divider(height: 20),
-
                           Row(
                             children: [
                               Text(
@@ -252,9 +248,7 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
                               ),
                             ],
                           ),
-
                           const Divider(height: 20),
-
                           Row(
                             children: [
                               Expanded(
@@ -288,7 +282,6 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
   }
 }
 
-// Formatter untuk input currency (sama dengan PPN)
 class CurrencyInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -298,15 +291,10 @@ class CurrencyInputFormatter extends TextInputFormatter {
     if (newValue.text.isEmpty) {
       return newValue.copyWith(text: '');
     }
-
-    // Hapus semua karakter non-digit
     String cleanText = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-
     if (cleanText.isEmpty) {
       return const TextEditingValue();
     }
-
-    // Format ke currency
     final number = int.parse(cleanText);
     final formatter = NumberFormat.currency(
       locale: 'id_ID',
@@ -314,7 +302,6 @@ class CurrencyInputFormatter extends TextInputFormatter {
       decimalDigits: 0,
     );
     String formattedText = formatter.format(number);
-
     return TextEditingValue(
       text: formattedText,
       selection: TextSelection.collapsed(offset: formattedText.length),
@@ -355,17 +342,14 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
   Map<String, dynamic>? _cstDetail;
   bool _showAmountField = false;
 
-  // Variabel untuk selisih
   String? _selectedDifference;
   bool _showNotesField = false;
   final TextEditingController _notesController = TextEditingController();
 
-  // Variabel baru untuk FOTO
   File? _fotoFile;
   final ImagePicker _imagePicker = ImagePicker();
   bool _showFotoUpload = false;
 
-  // Variabel baru untuk BANK
   String? _selectedBankId;
   bool _showBankDropdown = false;
   final List<Map<String, String>> _bankOptions = [
@@ -373,9 +357,10 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
     {'id': '14', 'name': 'BCA - 162.888.1234 - TIFFANY YUANITA RUNGKAT'},
   ];
 
-  // === VARIABEL BARU UNTUK STATUS TRANSFER ===
-  String? _selectedTransferStatus; // 'lunas' atau 'belum_transfer'
-  bool _showTransferStatusDropdown = false;
+  // === VARIABEL STATUS PEMBAYARAN (TUNAI & TRANSFER) ===
+  // Values: 'lunas', 'belum_transfer', 'belum_bayar'
+  String? _selectedSubStatus;
+  bool _showSubStatusDropdown = false;
   // ==========================================
 
   @override
@@ -383,7 +368,6 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
     super.initState();
     _loadCSTDetail();
 
-    // Set nilai default amount dengan format currency
     final total = widget.cst['total'] ?? '0';
     if (total.isNotEmpty) {
       final formatter = NumberFormat.currency(
@@ -421,7 +405,6 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
     }
   }
 
-  // === Fungsi baru untuk FOTO (dari warehouse_admlcl.dart) ===
   Future<void> _pickImage(ImageSource source) async {
     try {
       final pickedFile = await _imagePicker.pickImage(source: source);
@@ -482,16 +465,19 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
       return;
     }
 
-    // Siapkan variabel untuk dikirim
     String? paymentAmountValue;
     String? paymentDifferenceValue;
     String? paymentNotesValue;
     String? bankIdValue;
     File? fileValue = _fotoFile;
 
-    // Logika berdasarkan Tipe Pembayaran
-    if (_selectedPaymentType == '1') {
-      // === Logika untuk TUNAI ===
+    if (_selectedSubStatus == null) {
+      _showErrorDialog('Pilih status pembayaran (Lunas / Belum)');
+      return;
+    }
+
+    // Cek apakah LUNAS (berlaku untuk Tunai & Transfer)
+    if (_selectedSubStatus == 'lunas') {
       if (_amountController.text.isEmpty) {
         _showErrorDialog('Masukkan jumlah pembayaran');
         return;
@@ -505,13 +491,17 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
         return;
       }
 
+      if (_selectedPaymentType == '2' && _selectedBankId == null) {
+        _showErrorDialog('Pilih rekening tujuan untuk metode Transfer');
+        return;
+      }
+
       // Validasi Selisih
       if (_selectedDifference == '1') {
         if (_notesController.text.isEmpty) {
           _showErrorDialog('Harap isi keterangan selisih');
           return;
         }
-        // Cek jumlah bayar vs total
         final totalAmountString = widget.cst['total']?.toString() ?? '0';
         final totalAmount = int.tryParse(totalAmountString) ?? 0;
         final paymentAmountString = _amountController.text.replaceAll('.', '');
@@ -525,77 +515,23 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
         }
       }
 
-      // Set nilai untuk Tunai
+      // Set Data untuk LUNAS
       paymentAmountValue = _amountController.text.replaceAll('.', '');
       paymentDifferenceValue = _selectedDifference;
       paymentNotesValue = _showNotesField ? _notesController.text : null;
-      bankIdValue = null; // Tunai tidak perlu bank
-    } else if (_selectedPaymentType == '2') {
-      // === Logika untuk TRANSFER ===
-      if (_selectedTransferStatus == null) {
-        _showErrorDialog('Pilih status transfer (Lunas / Belum Transfer)');
+      bankIdValue = (_selectedPaymentType == '2') ? _selectedBankId : null;
+    } else {
+      // === LOGIKA BELUM BAYAR / BELUM TRANSFER ===
+      if (_fotoFile == null) {
+        _showErrorDialog('Harap upload Tanda Terima');
         return;
       }
 
-      if (_selectedTransferStatus == 'lunas') {
-        // --- Validasi Lunas ---
-        if (_amountController.text.isEmpty) {
-          _showErrorDialog('Masukkan jumlah pembayaran');
-          return;
-        }
-        if (_selectedDifference == null) {
-          _showErrorDialog('Pilih status selisih pembayaran');
-          return;
-        }
-        if (_fotoFile == null) {
-          _showErrorDialog('Harap upload bukti pembayaran');
-          return;
-        }
-        if (_selectedBankId == null) {
-          _showErrorDialog('Pilih rekening tujuan untuk metode Transfer');
-          return;
-        }
-
-        // Validasi Selisih (sama seperti tunai)
-        if (_selectedDifference == '1') {
-          if (_notesController.text.isEmpty) {
-            _showErrorDialog('Harap isi keterangan selisih');
-            return;
-          }
-          final totalAmountString = widget.cst['total']?.toString() ?? '0';
-          final totalAmount = int.tryParse(totalAmountString) ?? 0;
-          final paymentAmountString = _amountController.text.replaceAll(
-            '.',
-            '',
-          );
-          final paymentAmount = int.tryParse(paymentAmountString) ?? 0;
-
-          if (paymentAmount == totalAmount) {
-            _showErrorDialog(
-              'Jumlah pembayaran tidak boleh sama dengan total tagihan jika memilih opsi "Selisih".',
-            );
-            return;
-          }
-        }
-
-        // Set nilai untuk Transfer Lunas
-        paymentAmountValue = _amountController.text.replaceAll('.', '');
-        paymentDifferenceValue = _selectedDifference;
-        paymentNotesValue = _showNotesField ? _notesController.text : null;
-        bankIdValue = _selectedBankId;
-      } else {
-        // --- Validasi Belum Transfer ---
-        if (_fotoFile == null) {
-          _showErrorDialog('Harap upload Tanda Terima');
-          return;
-        }
-
-        // Set nilai untuk Belum Transfer
-        paymentAmountValue = null;
-        paymentDifferenceValue = "1";
-        paymentNotesValue = "Faktur Telah Dikirim";
-        bankIdValue = null;
-      }
+      // Set Data untuk BELUM BAYAR
+      paymentAmountValue = null;
+      paymentDifferenceValue = null;
+      paymentNotesValue = "Faktur Telah Dikirim";
+      bankIdValue = null;
     }
 
     setState(() {
@@ -699,11 +635,10 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                       _buildDetailRow('Kota Client', cst['city_client'] ?? '-'),
                       _buildDetailRow('Total Tagihan', formattedTotal),
                       _buildDetailRow(
-                        'Tgl. Dibuat',
+                        'Tgl. Diterbitkan',
                         cst['tanggal_invoice'] ?? '-',
                       ),
                       const SizedBox(height: 20),
-
                       Text(
                         'Metode Pembayaran',
                         style: theme.textTheme.titleMedium,
@@ -729,9 +664,9 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                           setState(() {
                             _selectedPaymentType = newValue;
 
-                            // Reset semua field turunan
-                            _selectedTransferStatus = null;
-                            _showTransferStatusDropdown = false;
+                            // Reset semua field
+                            _selectedSubStatus = null;
+                            _showSubStatusDropdown = true;
                             _showAmountField = false;
                             _showFotoUpload = false;
                             _showBankDropdown = false;
@@ -740,46 +675,48 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                             _notesController.clear();
                             _fotoFile = null;
                             _selectedBankId = null;
-
-                            if (newValue == '1') {
-                              // Tunai: Tampilkan field Lunas
-                              _showAmountField = true;
-                              _showFotoUpload = true;
-                              _showBankDropdown = false;
-                            } else if (newValue == '2') {
-                              // Transfer: Tampilkan dropdown Lunas/Belum
-                              _showTransferStatusDropdown = true;
-                              // Field lain akan di-trigger oleh dropdown tsb
-                            }
                           });
                         },
                       ),
                       const SizedBox(height: 15),
 
-                      // === DROPDOWN BARU: STATUS TRANSFER ===
-                      if (_showTransferStatusDropdown) ...[
+                      // === DROPDOWN STATUS PEMBAYARAN (TUNAI & TRANSFER) ===
+                      if (_showSubStatusDropdown &&
+                          _selectedPaymentType != null) ...[
                         DropdownButtonFormField<String>(
-                          value: _selectedTransferStatus,
+                          value: _selectedSubStatus,
                           isExpanded: true,
                           decoration: const InputDecoration(
-                            labelText: 'Status Transfer',
+                            labelText: 'Status Pembayaran',
                             border: OutlineInputBorder(),
                           ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'lunas',
-                              child: Text('Lunas'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'belum_transfer',
-                              child: Text('Belum Transfer'),
-                            ),
-                          ],
+                          items:
+                              (_selectedPaymentType == '1')
+                                  ? const [
+                                    DropdownMenuItem(
+                                      value: 'lunas',
+                                      child: Text('Lunas'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'belum_bayar',
+                                      child: Text('Belum Bayar'),
+                                    ),
+                                  ]
+                                  : const [
+                                    DropdownMenuItem(
+                                      value: 'lunas',
+                                      child: Text('Lunas'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'belum_transfer',
+                                      child: Text('Belum Transfer'),
+                                    ),
+                                  ],
                           onChanged: (String? newValue) {
                             setState(() {
-                              _selectedTransferStatus = newValue;
+                              _selectedSubStatus = newValue;
 
-                              // Reset field di bawahnya
+                              // Reset field turunan
                               _showAmountField = false;
                               _showFotoUpload = false;
                               _showBankDropdown = false;
@@ -790,12 +727,14 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                               _selectedBankId = null;
 
                               if (newValue == 'lunas') {
-                                // Tampilkan semua field untuk lunas
+                                // Tampilkan field lengkap untuk lunas
                                 _showAmountField = true;
                                 _showFotoUpload = true;
-                                _showBankDropdown = true;
-                              } else if (newValue == 'belum_transfer') {
-                                // Hanya tampilkan upload foto
+                                if (_selectedPaymentType == '2') {
+                                  _showBankDropdown = true;
+                                }
+                              } else {
+                                // Belum Bayar / Belum Transfer
                                 _showFotoUpload = true;
                               }
                             });
@@ -804,7 +743,6 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                         const SizedBox(height: 15),
                       ],
 
-                      // ======================================
                       if (_showBankDropdown) ...[
                         DropdownButtonFormField<String>(
                           value: _selectedBankId,
@@ -892,13 +830,12 @@ class _CSTDetailModalState extends State<CSTDetailModal> {
                             children: [
                               TextButton.icon(
                                 icon: const Icon(Icons.camera_alt),
-                                // === UBAH LABEL TOMBOL FOTO ===
                                 label: Text(
-                                  _selectedTransferStatus == 'belum_transfer'
+                                  (_selectedSubStatus == 'belum_transfer' ||
+                                          _selectedSubStatus == 'belum_bayar')
                                       ? "Upload Tanda Terima"
                                       : "Upload Bukti Pembayaran",
                                 ),
-                                // ==============================
                                 onPressed: () {
                                   showDialog(
                                     context: context,
