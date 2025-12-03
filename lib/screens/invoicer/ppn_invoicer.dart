@@ -22,8 +22,10 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
   final AuthService _authService = AuthService();
   late InvoicerService _invoicerService;
   final RefreshController _refreshController = RefreshController();
+  final TextEditingController _searchController = TextEditingController();
 
   List<dynamic> _invoices = [];
+  List<dynamic> _filteredInvoices = [];
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -32,6 +34,19 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
     super.initState();
     _invoicerService = InvoicerService(_authService);
     _loadInvoices();
+  }
+
+  void _filterList(String query) {
+    setState(() {
+      _filteredInvoices =
+          _invoices.where((item) {
+            final invoiceNumber =
+                item['invoice_number']?.toString().toLowerCase() ?? '';
+            final clientName = item['name']?.toString().toLowerCase() ?? '';
+            return invoiceNumber.contains(query.toLowerCase()) ||
+                clientName.contains(query.toLowerCase());
+          }).toList();
+    });
   }
 
   Future<void> _loadInvoices() async {
@@ -46,6 +61,10 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
 
       setState(() {
         _invoices = invoices;
+        _filteredInvoices = invoices;
+        if (_searchController.text.isNotEmpty) {
+          _filterList(_searchController.text);
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -127,7 +146,7 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final location = widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar';
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -152,134 +171,208 @@ class _PpnInvoicerState extends State<PpnInvoicer> {
       );
     }
 
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: false,
-      onRefresh: () async {
-        await _loadInvoices();
-        _refreshController.refreshCompleted();
-      },
-      child:
-          _invoices.isEmpty
-              ? Center(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 4,
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
                     Text(
-                      "Tidak ada tagihan untuk di-proses",
-                      style: theme.textTheme.titleMedium!.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      'Invoicer $location',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const Text(
+                      'PPN',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-              )
-              : ListView.builder(
-                itemCount: _invoices.length,
-                itemBuilder: (context, index) {
-                  final invoice = _invoices[index];
-                  final invoiceNumber = invoice['invoice_number'] ?? '-';
-                  final clientName = invoice['name'] ?? '-';
-                  final clientContact = invoice['contact'] ?? '-';
-                  final total = invoice['total'] ?? '0';
-                  final invoiceDate = invoice['tanggal_ditugaskan'] ?? '-';
+              ),
+              const SizedBox(width: 12),
 
-                  final formatter = NumberFormat.currency(
-                    locale: 'id_ID',
-                    symbol: 'Rp. ',
-                    decimalDigits: 0,
-                  );
-                  final formattedTotal = formatter.format(
-                    int.tryParse(total) ?? 0,
-                  );
+              Expanded(
+                flex: 6,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari...',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 10,
+                    ),
+                    suffixIcon:
+                        _searchController.text.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                _filterList('');
+                              },
+                            )
+                            : null,
+                  ),
+                  onChanged: _filterList,
+                ),
+              ),
+            ],
+          ),
+        ),
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(16),
-                      title: Text(
-                        '$invoiceNumber',
-                        style: theme.textTheme.titleSmall!.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+        Expanded(
+          child: SmartRefresher(
+            controller: _refreshController,
+            enablePullDown: true,
+            enablePullUp: false,
+            onRefresh: () async {
+              await _loadInvoices();
+              _refreshController.refreshCompleted();
+            },
+            child:
+                _filteredInvoices.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Kepada : ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Tidak ada tagihan untuk di-proses",
+                            style: theme.textTheme.titleMedium!.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.6,
                               ),
-                              Expanded(
-                                child: Text(
-                                  clientName,
-                                  style: theme.textTheme.titleSmall!.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 3,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Text('Kontak : '),
-                              Expanded(child: Text(clientContact, maxLines: 2)),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            children: [
-                              Text(
-                                'Tgl. Ditugaskan : $invoiceDate',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Total : $formattedTotal',
-                                  style: theme.textTheme.titleSmall!.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                      trailing: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    )
+                    : ListView.builder(
+                      itemCount: _filteredInvoices.length,
+                      itemBuilder: (context, index) {
+                        final invoice = _filteredInvoices[index];
+                        final invoiceNumber = invoice['invoice_number'] ?? '-';
+                        final clientName = invoice['name'] ?? '-';
+                        final clientContact = invoice['contact'] ?? '-';
+                        final total = invoice['total'] ?? '0';
+                        final invoiceDate =
+                            invoice['tanggal_ditugaskan'] ?? '-';
+
+                        final formatter = NumberFormat.currency(
+                          locale: 'id_ID',
+                          symbol: 'Rp. ',
+                          decimalDigits: 0,
+                        );
+                        final formattedTotal = formatter.format(
+                          int.tryParse(total) ?? 0,
+                        );
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                        ),
-                        onPressed: () => _showInvoiceDetailModal(invoice),
-                        child: const Text("Proses"),
-                      ),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            title: Text(
+                              '$invoiceNumber',
+                              style: theme.textTheme.titleSmall!.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Kepada : ',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        clientName,
+                                        style: theme.textTheme.titleSmall!
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                        maxLines: 3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Text('Kontak : '),
+                                    Expanded(
+                                      child: Text(clientContact, maxLines: 2),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Tgl. Ditugaskan : $invoiceDate',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Total : $formattedTotal',
+                                        style: theme.textTheme.titleSmall!
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () => _showInvoiceDetailModal(invoice),
+                              child: const Text("Proses"),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+          ),
+        ),
+      ],
     );
   }
 }

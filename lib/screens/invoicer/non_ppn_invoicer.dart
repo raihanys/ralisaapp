@@ -23,8 +23,10 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
   final AuthService _authService = AuthService();
   late InvoicerService _invoicerService;
   final RefreshController _refreshController = RefreshController();
+  final TextEditingController _searchController = TextEditingController();
 
   List<dynamic> _cstList = [];
+  List<dynamic> _filteredCstList = [];
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -33,6 +35,19 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
     super.initState();
     _invoicerService = InvoicerService(_authService);
     _loadCST();
+  }
+
+  void _filterList(String query) {
+    setState(() {
+      _filteredCstList =
+          _cstList.where((item) {
+            final shipNumber =
+                item['ship_number']?.toString().toLowerCase() ?? '';
+            final clientName = item['name']?.toString().toLowerCase() ?? '';
+            return shipNumber.contains(query.toLowerCase()) ||
+                clientName.contains(query.toLowerCase());
+          }).toList();
+    });
   }
 
   Future<void> _loadCST() async {
@@ -47,6 +62,10 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
 
       setState(() {
         _cstList = cstData;
+        _filteredCstList = cstData;
+        if (_searchController.text.isNotEmpty) {
+          _filterList(_searchController.text);
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -128,7 +147,7 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final location = widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar';
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -150,134 +169,207 @@ class _NonPpnInvoicerState extends State<NonPpnInvoicer> {
       );
     }
 
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: false,
-      onRefresh: () async {
-        await _loadCST();
-        _refreshController.refreshCompleted();
-      },
-      child:
-          _cstList.isEmpty
-              ? Center(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 4,
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
                     Text(
-                      "Tidak ada tagihan Non PPN untuk di-proses",
-                      style: theme.textTheme.titleMedium!.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      'Invoicer $location',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const Text(
+                      'Non-PPN',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-              )
-              : ListView.builder(
-                itemCount: _cstList.length,
-                itemBuilder: (context, index) {
-                  final cst = _cstList[index];
-                  final shipNumber = cst['ship_number'] ?? '-';
-                  final clientName = cst['name'] ?? '-';
-                  final clientContact = cst['contact'] ?? '-';
-                  final total = cst['total'] ?? '0';
-                  final cstDate = cst['tanggal_ditugaskan'] ?? '-';
+              ),
+              const SizedBox(width: 12),
 
-                  final formatter = NumberFormat.currency(
-                    locale: 'id_ID',
-                    symbol: 'Rp. ',
-                    decimalDigits: 0,
-                  );
-                  final formattedTotal = formatter.format(
-                    int.tryParse(total) ?? 0,
-                  );
+              Expanded(
+                flex: 6,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari...',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 10,
+                    ),
+                    suffixIcon:
+                        _searchController.text.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                _filterList('');
+                              },
+                            )
+                            : null,
+                  ),
+                  onChanged: _filterList,
+                ),
+              ),
+            ],
+          ),
+        ),
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(16),
-                      title: Text(
-                        '$shipNumber',
-                        style: theme.textTheme.titleSmall!.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+        Expanded(
+          child: SmartRefresher(
+            controller: _refreshController,
+            enablePullDown: true,
+            enablePullUp: false,
+            onRefresh: () async {
+              await _loadCST();
+              _refreshController.refreshCompleted();
+            },
+            child:
+                _filteredCstList.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Kepada : ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Tidak ada tagihan Non PPN untuk di-proses",
+                            style: theme.textTheme.titleMedium!.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.6,
                               ),
-                              Expanded(
-                                child: Text(
-                                  clientName,
-                                  style: theme.textTheme.titleSmall!.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 3,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Text('Kontak : '),
-                              Expanded(child: Text(clientContact, maxLines: 2)),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            children: [
-                              Text(
-                                'Tgl. Ditugaskan : $cstDate',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Total : $formattedTotal',
-                                  style: theme.textTheme.titleSmall!.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                      trailing: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    )
+                    : ListView.builder(
+                      itemCount: _filteredCstList.length,
+                      itemBuilder: (context, index) {
+                        final cst = _filteredCstList[index];
+                        final shipNumber = cst['ship_number'] ?? '-';
+                        final clientName = cst['name'] ?? '-';
+                        final clientContact = cst['contact'] ?? '-';
+                        final total = cst['total'] ?? '0';
+                        final cstDate = cst['tanggal_ditugaskan'] ?? '-';
+
+                        final formatter = NumberFormat.currency(
+                          locale: 'id_ID',
+                          symbol: 'Rp. ',
+                          decimalDigits: 0,
+                        );
+                        final formattedTotal = formatter.format(
+                          int.tryParse(total) ?? 0,
+                        );
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                        ),
-                        onPressed: () => _showCSTDetailModal(cst),
-                        child: const Text("Proses"),
-                      ),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            title: Text(
+                              '$shipNumber',
+                              style: theme.textTheme.titleSmall!.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 8),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Kepada : ',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        clientName,
+                                        style: theme.textTheme.titleSmall!
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                        maxLines: 3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Text('Kontak : '),
+                                    Expanded(
+                                      child: Text(clientContact, maxLines: 2),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Tgl. Ditugaskan : $cstDate',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Total : $formattedTotal',
+                                        style: theme.textTheme.titleSmall!
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () => _showCSTDetailModal(cst),
+                              child: const Text("Proses"),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+          ),
+        ),
+      ],
     );
   }
 }

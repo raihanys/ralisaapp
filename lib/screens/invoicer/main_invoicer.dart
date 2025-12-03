@@ -43,7 +43,7 @@ class _MainInvoicerState extends State<MainInvoicer> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return _MainInvoicerContent(invoicingCode: _invoicingCode);
@@ -70,8 +70,8 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(150.0),
-        child: SafeArea(child: _buildCustomAppBar(context, _currentIndex)),
+        preferredSize: const Size.fromHeight(70.0),
+        child: SafeArea(child: _buildCustomAppBar(context)),
       ),
       body: IndexedStack(
         index: _currentIndex,
@@ -85,64 +85,31 @@ class _MainInvoicerContentState extends State<_MainInvoicerContent> {
     );
   }
 
-  Widget _buildCustomAppBar(BuildContext context, int currentIndex) {
-    String title = '';
-    String subtitle = 'Aplikasi Invoicer';
-
-    switch (currentIndex) {
-      case 0:
-        title = 'PPN';
-        subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
-        break;
-      case 1:
-        title = 'Non PPN';
-        subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
-        break;
-      case 2:
-        title = 'Monitoring';
-        subtitle += ' ${widget.invoicingCode == '1' ? 'Jakarta' : 'Makassar'}';
-        break;
-    }
-
+  Widget _buildCustomAppBar(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Image.asset('assets/images/logo.png', height: 40, width: 200),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () async {
-                    await _authService.logout();
-                    if (!mounted) return;
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
-                  child: const Text('Logout'),
+            Image.asset('assets/images/logo.png', height: 40, width: 200),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              subtitle,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () async {
+                await _authService.logout();
+                if (!mounted) return;
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              },
+              child: const Text('Logout'),
             ),
           ],
         ),
