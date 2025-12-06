@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../services/lcl_service.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'main_admlcl.dart';
+import 'package:intl/intl.dart';
 
 class MonitoringAdmLCL extends StatefulWidget {
   const MonitoringAdmLCL({Key? key}) : super(key: key);
@@ -18,6 +19,9 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
   List<Map<String, dynamic>> _lpbList = [];
   bool _isLoading = true;
   String? _username;
+
+  // 0 = Warehouse, 1 = Container. Digunakan untuk BottomNavigationBar index.
+  int _selectedTab = 0;
 
   final RefreshController _refreshController = RefreshController(
     initialRefresh: false,
@@ -40,7 +44,6 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
     _fetchUsernameAndData();
   }
 
-  // Fungsi baru untuk mengambil username lalu data lpb
   Future<void> _fetchUsernameAndData() async {
     _username = await _authService.getUsername();
     _fetchLPBData();
@@ -49,7 +52,6 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
   Future<void> _fetchLPBData() async {
     setState(() => _isLoading = true);
     try {
-      // Pastikan username sudah didapat
       if (_username == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -72,7 +74,8 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
         if (mounted) {
           setState(() {
             _lpbList = filteredData;
-            _filteredLpbList = _lpbList;
+            // Terapkan filter list awal jika ada teks pencarian
+            _filterList(_searchController.text);
           });
         }
       } else {
@@ -121,6 +124,24 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
     });
   }
 
+  // Helper untuk mendapatkan list final berdasarkan Tab yang dipilih dan hasil pencarian
+  List<Map<String, dynamic>> get _tabFilteredList {
+    return _filteredLpbList.where((item) {
+      // Cek apakah item punya container_id dan tidak kosong
+      bool hasContainer =
+          item['container_id'] != null &&
+          item['container_id'].toString().isNotEmpty;
+
+      if (_selectedTab == 0) {
+        // Tab Warehouse: Tampilkan yg TIDAK punya container
+        return !hasContainer;
+      } else {
+        // Tab Container: Tampilkan yg PUNYA container
+        return hasContainer;
+      }
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,20 +149,28 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
         preferredSize: const Size.fromHeight(150.0),
         child: SafeArea(child: _buildCustomAppBar(context)),
       ),
+      // Body diisi dengan SmartRefresher dan list item
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : Column(
-                children: [
-                  Expanded(
-                    child: SmartRefresher(
-                      controller: _refreshController,
-                      onRefresh: _onRefresh,
-                      child: _buildContent(),
-                    ),
+              : SmartRefresher(
+                controller: _refreshController,
+                onRefresh: _onRefresh,
+                child: ListView(
+                  // Menggunakan padding standard
+                  padding: const EdgeInsets.only(
+                    top: 16,
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
                   ),
-                ],
+                  children: _buildListItems(),
+                ),
               ),
+
+      // Menggunakan bottomNavigationBar untuk Floating Tab Bar
+      bottomNavigationBar: _buildFloatingNavBar(Theme.of(context)),
+
       floatingActionButton: FloatingActionButton(
         onPressed: _backToMainLCL,
         tooltip: 'Kembali ke Menu Utama',
@@ -151,6 +180,50 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
       floatingActionButtonLocation: FloatingActionButtonLocation.miniStartFloat,
     );
   }
+
+  // --- Widget Baru untuk Floating Tab Bar (mengikuti gaya main_invoicer) ---
+  Widget _buildFloatingNavBar(ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BottomNavigationBar(
+          currentIndex: _selectedTab,
+          onTap: (index) => setState(() => _selectedTab = index),
+          backgroundColor: theme.colorScheme.surface,
+          selectedItemColor: theme.colorScheme.primary,
+          unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.6),
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.warehouse_outlined),
+              activeIcon: Icon(Icons.warehouse),
+              label: 'Warehouse',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.local_shipping_outlined),
+              activeIcon: Icon(Icons.local_shipping),
+              label: 'Container',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // ------------------------------------------------------------------------
 
   Widget _buildCustomAppBar(BuildContext context) {
     return Container(
@@ -243,152 +316,178 @@ class _MonitoringAdmLCLState extends State<MonitoringAdmLCL> {
     );
   }
 
-  Widget _buildContent() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  List<Widget> _buildListItems() {
+    final displayList = _tabFilteredList;
 
-    if (_filteredLpbList.isEmpty) {
-      return const Center(child: Text("Tidak ada data LPB untuk Anda"));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _filteredLpbList.length,
-      itemBuilder: (context, index) {
-        final item = _filteredLpbList[index];
-
-        String statusText;
-        Color statusColor;
-        if (item['container_id'] == null) {
-          statusText = "Warehouse";
-          statusColor = Colors.green[100]!;
-        } else {
-          statusText = "Container";
-          statusColor = Colors.blue[100]!;
-        }
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    if (displayList.isEmpty) {
+      return [
+        const SizedBox(height: 50),
+        Center(
+          child: Text(
+            // Tampilkan pesan yang relevan berdasarkan tab yang dipilih
+            "Tidak ada data ${_selectedTab == 0 ? 'Warehouse' : 'Container'} untuk Anda.",
+            style: const TextStyle(color: Colors.grey),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item['no_lpb'] ?? 'No LPB',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
+        ),
+      ];
+    }
+
+    String formatDate(String? dateString) {
+      if (dateString == null || dateString.isEmpty) return '-';
+      try {
+        final date = DateTime.parse(dateString);
+        return DateFormat('dd MMMM yyyy').format(date);
+      } catch (e) {
+        return '-';
+      }
+    }
+
+    String formatTime(String? dateString) {
+      if (dateString == null || dateString.isEmpty) return '-';
+      try {
+        final date = DateTime.parse(dateString);
+        return DateFormat('HH:mm').format(date);
+      } catch (e) {
+        return '-';
+      }
+    }
+
+    // Menggunakan kode Card yang sama persis seperti sebelumnya (tidak diubah)
+    return displayList.map((item) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item['no_lpb'] ?? 'No LPB',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        statusText,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                          fontSize: 12,
-                        ),
-                      ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Pengirim: ${item['sender'] ?? '-'}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Penerima: ${item['receiver'] ?? '-'}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Petugas: ${item['petugas'] ?? '-'}',
+                style: const TextStyle(fontSize: 14),
+              ),
+              if (_selectedTab == 0) ...[
+                Text(
+                  'Tanggal: ${formatDate(item['warehouse_scanned_date'])}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  'Waktu: ${formatTime(item['warehouse_scanned_date'])}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ],
+              if (_selectedTab == 1) ...[
+                Text(
+                  'Tanggal: ${formatDate(item['container_scanned_date'])}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  'Waktu: ${formatTime(item['container_scanned_date'])}',
+                  style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Pengirim: ${item['sender'] ?? '-'}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Penerima: ${item['receiver'] ?? '-'}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Petugas: ${item['petugas'] ?? '-'}',
+                  'Container: ${item['container_number'] ?? '-'}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 8.0,
-                        runSpacing: 8.0,
-                        children: [
-                          _buildInfoChip(
-                            'QTY',
-                            '${item['total_item'] ?? '0'} item',
-                          ),
-                          _buildInfoChip(
-                            'Berat',
-                            '${item['weight'] ?? '0'} kg',
-                          ),
-                          _buildInfoChip(
-                            'Volume',
-                            '${item['volume'] ?? '0'} m3',
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[300],
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => DetailMonitoringAdmLCL(
-                                  noLpb: item['no_lpb'],
-                                  totalQty: '${item['total_item'] ?? '0'} item',
-                                  totalWeight: '${item['weight'] ?? '0'} kg',
-                                  totalVolume: '${item['volume'] ?? '0'} m3',
-                                ),
-                          ),
-                        ).then((shouldRefresh) {
-                          if (shouldRefresh == true) {
-                            _fetchLPBData();
-                          }
-                        });
-                      },
-                      child: const Text("View"),
-                    ),
-                  ],
-                ),
               ],
-            ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: [
+                        _buildInfoChip(
+                          'QTY',
+                          '${item['total_item'] ?? '0'} item',
+                        ),
+                        _buildInfoChip('Berat', '${item['weight'] ?? '0'} kg'),
+                        _buildInfoChip('Volume', '${item['volume'] ?? '0'} m3'),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[300],
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => DetailMonitoringAdmLCL(
+                                noLpb: item['no_lpb'],
+                                totalQty: '${item['total_item'] ?? '0'} item',
+                                totalWeight: '${item['weight'] ?? '0'} kg',
+                                totalVolume: '${item['volume'] ?? '0'} m3',
+                              ),
+                        ),
+                      ).then((shouldRefresh) {
+                        if (shouldRefresh == true) {
+                          _fetchLPBData();
+                        }
+                      });
+                    },
+                    child: const Text("View"),
+                  ),
+                ],
+              ),
+            ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    }).toList();
   }
 }

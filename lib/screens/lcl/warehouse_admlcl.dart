@@ -104,6 +104,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     'Batang',
     'Koli',
     'Unit',
+    'Keranjang',
   ];
   List<String> _uniquePackagingTypes = [];
 

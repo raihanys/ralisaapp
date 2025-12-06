@@ -133,6 +133,7 @@ class _ContainerScreenState extends State<ContainerScreen> {
     'Batang',
     'Koli',
     'Unit',
+    'Keranjang',
   ];
   List<String> _uniquePackagingTypes = [];
 

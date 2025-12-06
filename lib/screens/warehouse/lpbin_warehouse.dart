@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../../services/warehouse_service.dart';
 import 'itemlpb_warehouse.dart';
+import 'package:intl/intl.dart';
 
 class LpbInWarehouse extends StatefulWidget {
   const LpbInWarehouse({Key? key}) : super(key: key);
@@ -144,6 +145,26 @@ class _LpbInWarehouseState extends State<LpbInWarehouse> {
     );
   }
 
+  String formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return '-';
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('dd MMMM yyyy').format(date);
+    } catch (e) {
+      return '-';
+    }
+  }
+
+  String formatTime(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return '-';
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('HH:mm').format(date);
+    } catch (e) {
+      return '-';
+    }
+  }
+
   Widget _buildContent() {
     if (_filteredLpbList.isEmpty) {
       return const Center(child: Text("Tidak ada data LPB di Warehouse"));
@@ -179,20 +200,31 @@ class _LpbInWarehouseState extends State<LpbInWarehouse> {
                 const SizedBox(height: 12),
                 Text(
                   'Pengirim: ${item['sender'] ?? '-'}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Penerima: ${item['receiver'] ?? '-'}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Petugas: ${item['petugas'] ?? '-'}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Penerima: ${item['receiver'] ?? '-'}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Petugas: ${item['petugas'] ?? '-'}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  'Tanggal: ${formatDate(item['warehouse_scanned_date'])}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  'Waktu: ${formatTime(item['warehouse_scanned_date'])}',
+                  style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 20),
                 Row(
