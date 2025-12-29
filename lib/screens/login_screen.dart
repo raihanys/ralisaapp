@@ -2,12 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'pelabuhan/main_pelabuhan.dart';
 import 'supir/main_supir.dart';
-import 'lcl/main_admlcl.dart';
-import 'warehouse/main_warehouse.dart';
-import 'warehouse_mks/main_warehouse_mks.dart';
-import 'krani_mks/main_krani_mks.dart';
-import 'kurir_mks/main_kurir_mks.dart';
-import 'invoicer/main_invoicer.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -68,12 +62,21 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateToRoleScreen() async {
     final role = await _authService.getRole();
     if (role == null) {
-      setState(() => _errorMessage = 'Role tidak ditemukan');
+      setState(() => _errorMessage = 'Gagal Mendapatkan Role Pengguna');
+      return;
+    }
+
+    if (role != '1' && role != '3') {
+      setState(
+        () =>
+            _errorMessage =
+                'Akun ini bukan untuk Ralisa App. Silakan gunakan SJR App.',
+      );
+      _authService.logout();
       return;
     }
 
     Widget target;
-
     switch (role.toLowerCase()) {
       case '1': // Driver
         target = const MainSupir();
@@ -81,26 +84,8 @@ class _LoginScreenState extends State<LoginScreen> {
       case '3': // Pelabuhan
         target = const MainPelabuhan();
         break;
-      case '4': // Krani LCL
-        target = const MainLCL();
-        break;
-      case '5': // Kepala Gudang
-        target = const MainWarehouse();
-        break;
-      case '6': // Warehouse Makassar
-        target = const MainWarehouseMks();
-        break;
-      case '7': // Krani Makassar
-        target = const MainKraniMks();
-        break;
-      case '8': // Kurir Makassar
-        target = const KurirMksScreen();
-        break;
-      case '9': // Invoicer
-        target = const MainInvoicer();
-        break;
       default:
-        setState(() => _errorMessage = 'Role tidak valid: $role');
+        setState(() => _errorMessage = 'Role tidak valid untuk aplikasi ini');
         return;
     }
 
